@@ -11,7 +11,7 @@ import sys
 import torch
 from torch.utils import data
 import torch.nn as nn
-from pytorch_dataset_hdf5 import Dataset
+from pytorch_dataset_hdf5_wav import Dataset
 from Scripts.import_data import ImportData
 from cnn_model import ConvNet
 from torch.autograd import Variable
@@ -32,6 +32,7 @@ def print_cuda_information(use_cuda):
         # print('__Devices')
         # call(["nvidia-smi", "--format=csv", "--query-gpu=index,name,driver_version,memory.total,memory.used,memory.free"])
         print('Active CUDA Device: GPU', torch.cuda.current_device())
+        print('Cuda capability of device: ', torch.cuda.get_device_capability(device=torch.cuda.current_device()))
         print('Available devices ', torch.cuda.device_count())
         print('Current cuda device ', torch.cuda.current_device())
     else:
@@ -73,13 +74,12 @@ def print_metrics(current_epoch, current_batch, total_batches, loss, n_correct_p
                   (n_correct_pred / n_total_samples) * 100, (time.time() - start_time),
                   batch_size * print_frequency / (time.time() - start_time)))
 
-
-def trainModel(model_input, training_generator, validation_generator, max_epochs, optimizer, criterion, use_cuda):
+def trainModel(model_input, training_generator, validation_generator, max_epochs, batch_size, optimizer, criterion, use_cuda):
     # temp_time = time.time()
     print('Function trainModel called by: ', repr(__name__))
     total_time = time.time()
     model = model_input
-
+    exit_early = False
     train_loss = []
     train_losses = []
     valid_loss = []
@@ -101,10 +101,11 @@ def trainModel(model_input, training_generator, validation_generator, max_epochs
             if use_cuda:  # On GPU
                 local_batch, local_labels = local_batch.cuda(non_blocking=True), local_labels.cuda(non_blocking=True)
             else:
-                local_batch, local_labels = Variable(local_batch), Variable(
-                    local_labels)  # RuntimeError: expected CPU tensor (got CUDA tensor)
+                local_batch, local_labels = Variable(local_batch), Variable(local_labels)
+                # RuntimeError: expected CPU tensor (got CUDA tensor)
 
             # Run the forward pass
+            optimizer.zero_grad()
             outputs = model(local_batch)
             if use_cuda:
                 loss = criterion(outputs, local_labels).cuda()
@@ -113,7 +114,6 @@ def trainModel(model_input, training_generator, validation_generator, max_epochs
             train_losses.append(loss.item())
 
             # Backprop and perform Adam optimisation
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
@@ -121,7 +121,7 @@ def trainModel(model_input, training_generator, validation_generator, max_epochs
             total = local_labels.size(0)
             _, predicted = torch.max(outputs.data, 1)
 
-            # torch.cuda.synchronize()
+            #torch.cuda.synchronize()
             correct = (predicted == local_labels).sum().item()
             # <- This requires a synchronize of cuda which takes a lot of time. Solution?
             acc_list.append(correct / total)
@@ -130,50 +130,50 @@ def trainModel(model_input, training_generator, validation_generator, max_epochs
                 print_metrics(current_epoch=epoch, current_batch=i, total_batches=n_training_batches, loss=loss,
                               n_correct_pred=correct, n_total_samples=total, start_time=batch_time)
                 batch_time = time.time()
-            # print("Mini batch time: ", (time.time()-single_mini_batch_time)*1000, " ms")
-            # single_mini_batch_time = time.time()
 
             if ((i == maxNumBatches) & endEarlyForProfiling):
                 print(" Exiting program early! ")
-                print("Total training time: ", (time.time() - total_time), " s")
-                exit()
+                exit_early = True
+                break
+
         # Validation
-        with torch.set_grad_enabled(False):
-            correct = 0
-            total = 0
-            model.eval()
-            batch_time = time.time()
-            for local_batch, local_labels in validation_generator:
-                # Transfer to GPU
-                local_batch, local_labels = local_batch.to(device), local_labels.to(device)
+        if (not exit_early):
+            with torch.set_grad_enabled(False):
+                correct = 0
+                total = 0
+                model.eval()
+                batch_time = time.time()
+                for local_batch, local_labels in validation_generator:
+                    # Transfer to GPU
+                    local_batch, local_labels = local_batch.to(device), local_labels.to(device)
 
-                # Track the accuracy
-                outputs = model(local_batch)
-                _, predicted = torch.max(outputs.data, 1)
-                total += local_labels.size(0)
-                correct += (predicted == local_labels).sum().item()
+                    # Track the accuracy
+                    outputs = model(local_batch)
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += local_labels.size(0)
+                    correct += (predicted == local_labels).sum().item()
 
-                loss = criterion(outputs, local_labels)
-                # record validation loss
-                valid_losses.append(loss.item())
+                    loss = criterion(outputs, local_labels)
+                    # record validation loss
+                    valid_losses.append(loss.item())
 
-            # print training/validation statistics 
-            # calculate average loss over an epoch
-            train_loss = numpy.average(train_losses)
-            valid_loss = numpy.average(valid_losses)
-            train_losses = []
-            valid_losses = []
+                # print training/validation statistics
+                # calculate average loss over an epoch
+                #train_loss = numpy.average(train_losses)
+                valid_loss = numpy.average(valid_losses)
+                train_losses = []
+                valid_losses = []
 
-            early_stopping(valid_loss, model)
+                early_stopping(valid_loss, model)
 
-        print('---------------------------------------------------------------------------------------------')
-        if early_stopping.early_stop:
-            print("Early stopping")
-            break
-        print_metrics(current_epoch=epoch, current_batch=n_validation_batches-1, total_batches=totalValidationBatches, loss=loss,
-        n_correct_pred=correct, n_total_samples=total, start_time=batch_time)
-        print('#############################################################################################')
-        model.train()
+            print('---------------------------------------------------------------------------------------------')
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+            print_metrics(current_epoch=epoch, current_batch=n_validation_batches-1, total_batches=n_validation_batches, loss=loss,
+            n_correct_pred=correct, n_total_samples=total, start_time=batch_time)
+            print('#############################################################################################')
+            model.train()
 
     model.load_state_dict(torch.load('checkpoint.pt'))
     print('Finished Training')
@@ -215,19 +215,22 @@ def visualizeDataFromLoader(training_generator, validation_generator):
 if __name__ == "__main__":
     # Parameters
     endEarlyForProfiling = False
-    maxNumBatches = 21
+    maxNumBatches = 101
     runOnCPUOnly = False
+    if endEarlyForProfiling:
+        max_epochs = 1
+    else:
+        max_epochs = 100
 
     batch_size = 400
     print_frequency = 20
     patience = 3
-    max_epochs = 10
-    learning_rate = 5e-4
+    learning_rate = 1e-3 # 1e-3 looks good, 1e-2 is too high
 
     # Datasets
     dataset_path = "./data/"
     datasethdf5_path = "./input_data_hdf5_70m/"
-    hdf5file_path = datasethdf5_path + "testArraySize11.hdf5" #"fileArray.hdf5" #
+    hdf5file_path = datasethdf5_path + "allWavIdx.hdf5" # testArraySize11.hdf5" # "allWavIdx.hdf5" #"fileArray.hdf5" #
 
     # CUDA for PyTorch
     use_cuda = torch.cuda.is_available() & (not runOnCPUOnly)
@@ -237,7 +240,7 @@ if __name__ == "__main__":
         numberOfWorkers = 0
         pin_memory = False
     else:
-        numberOfWorkers = 4
+        numberOfWorkers = 8
         pin_memory = True
     # Hyperparameters
     params = {'batch_size': batch_size,
@@ -259,10 +262,12 @@ if __name__ == "__main__":
         # optimizer.cuda()
 
     print("--------Calling trainModel()")
-    mainCallCounter = 0
-    trainModel(model, training_generator, validation_generator, max_epochs, optimizer, criterion, use_cuda)
-    #visualizeDataFromLoader(training_generator, validation_generator)
-    evaluateOnTestingSet(model, testing_generator)
+    trainModel(model, training_generator, validation_generator, max_epochs, batch_size, optimizer, criterion, use_cuda)
+    if not endEarlyForProfiling:
+        evaluateOnTestingSet(model, testing_generator)
+    if use_cuda:
+        print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None)/1e9, 'GB')
+        print('Maximum GPU memory managed by the caching allocator: ', torch.cuda.max_memory_cached(device=None)/1e9, 'GB')
 #else:
     # print('New worker started', repr(__name__))
 
