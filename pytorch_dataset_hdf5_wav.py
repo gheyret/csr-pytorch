@@ -26,7 +26,7 @@ class GoogleSpeechEncoder:
             label_dict[x] = i
         self.label_dict = label_dict
 
-        path_to_csv = "./input_data_hdf5_70m/label_index_ID_table.csv"
+        path_to_csv = "../data/GoogleSpeechCommands/hdf5_format/label_index_ID_table.csv"
         with open(path_to_csv, newline='') as csvfile:
             output_list = list(csv.reader(csvfile))
         output_list = [x for x in output_list if x]

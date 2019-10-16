@@ -251,8 +251,9 @@ if __name__ == "__main__":
     learning_rate = 1e-3 # 1e-3 looks good, 1e-2 is too high
 
     # Datasets
-    dataset_path = "./data/"
-    datasethdf5_path = "./input_data_hdf5_70m/"
+    #dataset_path = "./data/"
+    datasethdf5_path = "../data/GoogleSpeechCommands/hdf5_format/"
+    #datasethdf5_path = "./input_data_hdf5_70m/"
     hdf5file_path = datasethdf5_path + "allWavIdx.hdf5" # testArraySize11.hdf5" # "allWavIdx.hdf5" #"fileArray.hdf5" #
 
     # CUDA for PyTorch
