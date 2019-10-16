@@ -13,6 +13,9 @@ import time
 import matplotlib.pyplot as plt
 from custom_transforms import RangeNormalize
 
+
+
+
 class Dataset(data.Dataset):
     
     def __init__(self, hdf5file_path, list_IDs):
@@ -51,4 +54,5 @@ class Dataset(data.Dataset):
             plt.show()
             # x = torch.tensor(self.dataset['data'][ID, :, :, :]).cpu()
 
-        return x,y
+        return x, y
+

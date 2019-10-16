@@ -11,7 +11,7 @@ import sys
 import torch
 from torch.utils import data
 import torch.nn as nn
-from pytorch_dataset_hdf5_wav import Dataset
+from pytorch_dataset_hdf5_wav import Dataset, AudioDataLoader
 from Scripts.import_data import ImportData
 from cnn_model import ConvNet
 from torch.autograd import Variable
@@ -58,13 +58,13 @@ def load_data_set_indexes(dataset_path_in):
 def create_dataloaders(hdf5file_path_in, partition_in, params_in):
     # Generators
     training_set = Dataset(hdf5file_path_in, partition_in['train'])
-    training_generator_out = data.DataLoader(training_set, **params_in)
+    training_generator_out = AudioDataLoader(training_set, **params_in)
 
     validation_set = Dataset(hdf5file_path_in, partition_in['validation'])
-    validation_generator_out = data.DataLoader(validation_set, **params_in)
+    validation_generator_out = AudioDataLoader(validation_set, **params_in)
 
     testing_set = Dataset(hdf5file_path_in, partition_in['test'])
-    testing_generator_out = data.DataLoader(testing_set, **params_in)
+    testing_generator_out = AudioDataLoader(testing_set, **params_in)
     return training_generator_out, validation_generator_out, testing_generator_out
 
 
@@ -92,37 +92,46 @@ def trainModel(model_input, training_generator, validation_generator, max_epochs
     n_validation_batches = len(validation_generator)
     print("Starting training:")
     batch_time = time.time()
+    #Todo: Clean up
+    #Todo: Proper tracking, like tensorboard
     for epoch in range(max_epochs):
         # Training
         print("Epoch ", epoch, "/", max_epochs, " starting.")
-        for i, (local_batch, local_labels) in enumerate(training_generator, 0):
-
+        for i, (local_data) in enumerate(training_generator, 0):
+            local_batch, local_targets, local_input_percentages, local_target_lengths = local_data
+            input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
             # Transfer to GPU
             if use_cuda:  # On GPU
-                local_batch, local_labels = local_batch.cuda(non_blocking=True), local_labels.cuda(non_blocking=True)
+                local_batch, local_targets = local_batch.cuda(non_blocking=True), local_targets.cuda(non_blocking=True)
             else:
-                local_batch, local_labels = Variable(local_batch), Variable(local_labels)
+                local_batch, local_targets = Variable(local_batch), Variable(local_targets)
                 # RuntimeError: expected CPU tensor (got CUDA tensor)
 
             # Run the forward pass
-            optimizer.zero_grad()
             outputs = model(local_batch)
-            if use_cuda:
-                loss = criterion(outputs, local_labels).cuda()
-            else:
-                loss = criterion(outputs, local_labels)
-            train_losses.append(loss.item())
+            output_lengths = input_lengths # If this is different from in due to network, send as arg to model & calc
+            # Compute loss
+            #TODO: Targets and target_lengths as input from the data loader
+            loss = criterion(outputs, local_targets, output_lengths, local_target_lengths) # CTC loss function
+
+            # if use_cuda:
+            #    loss = criterion(outputs, local_labels).cuda()
+            # else:
+            #    loss = criterion(outputs, local_labels)
+            #
+            loss_value = train_losses.append(loss.item())
 
             # Backprop and perform Adam optimisation
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             # Track the accuracy
-            total = local_labels.size(0)
+            total = local_targets.size(0)
             _, predicted = torch.max(outputs.data, 1)
-
+            #Todo: Find a way to properly track accuracy & a separate CTC implementation so we can actually use the mdoel
             #torch.cuda.synchronize()
-            correct = (predicted == local_labels).sum().item()
+            correct = 0 #(predicted == local_labels).sum().item()
             # <- This requires a synchronize of cuda which takes a lot of time. Solution?
             acc_list.append(correct / total)
 
@@ -143,17 +152,30 @@ def trainModel(model_input, training_generator, validation_generator, max_epochs
                 total = 0
                 model.eval()
                 batch_time = time.time()
-                for local_batch, local_labels in validation_generator:
+                for (local_data) in validation_generator:
+                    local_batch, local_targets, local_input_percentages, local_target_lengths = local_data
+                    input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
                     # Transfer to GPU
-                    local_batch, local_labels = local_batch.to(device), local_labels.to(device)
+                    if use_cuda:  # On GPU
+                        local_batch, local_targets = local_batch.cuda(non_blocking=True), local_targets.cuda(
+                            non_blocking=True)
+                    else:
+                        local_batch, local_targets = Variable(local_batch), Variable(local_targets)
+
+                    # Run the forward pass
+                    outputs = model(local_batch)
+                    output_lengths = input_lengths  # If this is different from in due to network, send as arg to model & calc
+                    # Compute loss
+
+                    loss = criterion(outputs, local_targets, output_lengths, local_target_lengths)  # CTC loss function
 
                     # Track the accuracy
-                    outputs = model(local_batch)
-                    _, predicted = torch.max(outputs.data, 1)
-                    total += local_labels.size(0)
-                    correct += (predicted == local_labels).sum().item()
 
-                    loss = criterion(outputs, local_labels)
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += local_targets.size(0)
+                    correct += 0 #(predicted == local_targets).sum().item()
+
+                    #loss = criterion(outputs, local_targets)
                     # record validation loss
                     valid_losses.append(loss.item())
 
@@ -181,6 +203,7 @@ def trainModel(model_input, training_generator, validation_generator, max_epochs
 
 
 def evaluateOnTestingSet(model, testing_generator):
+    # Todo: Change to work with new dataloader
     # Validation
     with torch.set_grad_enabled(False):
         correct = 0
@@ -223,7 +246,7 @@ if __name__ == "__main__":
         max_epochs = 100
 
     batch_size = 400
-    print_frequency = 20
+    print_frequency = 1
     patience = 3
     learning_rate = 1e-3 # 1e-3 looks good, 1e-2 is too high
 
@@ -240,7 +263,7 @@ if __name__ == "__main__":
         numberOfWorkers = 0
         pin_memory = False
     else:
-        numberOfWorkers = 8
+        numberOfWorkers = 4
         pin_memory = True
     # Hyperparameters
     params = {'batch_size': batch_size,
@@ -255,7 +278,8 @@ if __name__ == "__main__":
     partition = load_data_set_indexes(datasethdf5_path)
     training_generator, validation_generator, testing_generator = create_dataloaders(hdf5file_path, partition, params)
 
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CTCLoss(zero_infinity=True)
+    #criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     if use_cuda:
         model.cuda()
