@@ -250,7 +250,7 @@ if __name__ == "__main__":
     patience = 3
     learning_rate = 1e-3 # 1e-3 looks good, 1e-2 is too high
 
-    # Datasets
+    # Datasets test
     #dataset_path = "./data/"
     datasethdf5_path = "../data/GoogleSpeechCommands/hdf5_format/"
     #datasethdf5_path = "./input_data_hdf5_70m/"
