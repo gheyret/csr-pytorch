@@ -17,7 +17,7 @@ from cnn_model import ConvNet
 from torch.autograd import Variable
 from csv_to_list import csvToList
 from early_stopping import EarlyStopping
-
+from ctc_decoder import beam_ctc_decode
 
 def print_cuda_information(use_cuda):
     print('Script v1.1')
@@ -73,6 +73,13 @@ def print_metrics(current_epoch, current_batch, total_batches, loss, n_correct_p
           .format(current_epoch + 1, max_epochs, current_batch + 1, total_batches, loss.item(),
                   (n_correct_pred / n_total_samples) * 100, (time.time() - start_time),
                   batch_size * print_frequency / (time.time() - start_time)))
+
+
+def decode_sample(input_sample):
+    input_sample = input_sample.cpu()
+    probs = input_sample[:, 0, :].detach().numpy()
+    labels, score = beam_ctc_decode(probs)
+    return labels
 
 def trainModel(model_input, training_generator, validation_generator, max_epochs, batch_size, optimizer, criterion, use_cuda):
     # temp_time = time.time()
@@ -136,6 +143,12 @@ def trainModel(model_input, training_generator, validation_generator, max_epochs
             acc_list.append(correct / total)
 
             if (i + 1) % print_frequency == 0:
+                evaluated_label = decode_sample(outputs)
+
+                true_label = local_targets[0, :local_target_lengths[0]]
+                print('Evaluated: ', evaluated_label)
+                print('True:      ', true_label)
+
                 print_metrics(current_epoch=epoch, current_batch=i, total_batches=n_training_batches, loss=loss,
                               n_correct_pred=correct, n_total_samples=total, start_time=batch_time)
                 batch_time = time.time()
@@ -245,10 +258,10 @@ if __name__ == "__main__":
     else:
         max_epochs = 100
 
-    batch_size = 400
+    batch_size = 1
     print_frequency = 1
-    patience = 3
-    learning_rate = 1e-3 # 1e-3 looks good, 1e-2 is too high
+    patience = 7
+    learning_rate = 1e-4 # 1e-3 looks good, 1e-2 is too high
 
     # Datasets test
     #dataset_path = "./data/"
