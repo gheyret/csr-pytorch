@@ -107,7 +107,7 @@ class Dataset(data.Dataset, GoogleSpeechEncoder):
     def __getitem__(self, index):
         if self.dataset is None:
             self.dataset = h5py.File(self.hdf5file_path, "r", swmr=True) # SWMR = Single write multiple read
-
+        #index = numpy.random.randint(1,10)
         ID = self.list_IDs[index]
         y = self.dataset['ds/label'][ID]
         y = self.encode_labels(y)

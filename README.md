@@ -36,3 +36,8 @@ https://github.com/ottokart/beam_search/blob/master/beam_search.py
 https://github.com/parlance/ctcdecode  
 https://medium.com/@kushagrabh13/modeling-sequences-with-ctc-part-1-91b14a0405b3  
 https://medium.com/@kushagrabh13/modeling-sequences-with-ctc-part-2-14ab45ef896e  
+
+---
+**Profiling**
+python -m cProfile -o prof.out train_model.py  
+snakeviz prof.out  
