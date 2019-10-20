@@ -41,3 +41,11 @@ https://medium.com/@kushagrabh13/modeling-sequences-with-ctc-part-2-14ab45ef896e
 **Profiling**
 python -m cProfile -o prof.out train_model.py  
 snakeviz prof.out  
+
+---
+**Useful Gits**
+https://github.com/Holmeyoung/crnn-pytorch  
+https://github.com/LearnedVector/Wav2Letter  
+https://github.com/SeanNaren/deepspeech.pytorch  
+https://www.endpoint.com/blog/2019/01/08/speech-recognition-with-tensorflow  
+https://github.com/jinserk/pytorch-asr/tree/master/asr  

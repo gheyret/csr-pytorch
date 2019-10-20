@@ -63,14 +63,6 @@ def decode_label(input_label):
     for i, x in enumerate(label_list):
         label_dict[i] = x
     label_dict = label_dict
-    #phoneme_list = []
-    #for x in label_list:
-    #    if x == "_":
-    #        phoneme_list.append(0)
-    #    elif x == "_":
-    #        phoneme_list.append(1)
-    #    else:
-    #        phoneme_list.append(label_dict[int(x)])
     phoneme_list = [label_dict[int(x)] for x in input_label]
     return phoneme_list
 

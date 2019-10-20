@@ -15,6 +15,9 @@ import csv
 import numpy
 import time
 import matplotlib.pyplot as plt
+from Scripts.import_data import ImportData
+
+
 #Todo: Make new Encoder for generated dataset
 class GoogleSpeechEncoder:
     def __init__(self):
@@ -182,3 +185,16 @@ class AudioDataLoader(DataLoader):
         """
         super(AudioDataLoader, self).__init__(*args, **kwargs)
         self.collate_fn = collate_fn_pad
+
+    def load_data_set_path(dataset_path):
+        # VERBOSE = False
+        partition, labels, label_index_ID_table = ImportData.importData(dataset_path, 35)  # IDs
+        return partition, labels
+
+    def load_data_set_indexes(dataset_path_in):
+        partition_out = {'train': ImportData.csvToList(dataset_path_in + "train_idx.csv"),
+                         'validation': ImportData.csvToList(dataset_path_in + "validation_idx.csv"),
+                         'test': ImportData.csvToList(dataset_path_in + "test_idx.csv")}
+
+        return partition_out
+

@@ -2,6 +2,7 @@ import torch
 import numpy
 import math
 import collections
+import Levenshtein
 
 def collapse_sequence(input_sequence, blank_code):
     collapsed_sequence = [input_sequence[i] for i in range(len(input_sequence)) if (i==0) or input_sequence[i] != input_sequence[i-1]]
@@ -33,6 +34,25 @@ def logsumexp(*args):
                        for a in args))
     return a_max + lsp
 
+
+def decode_sample(input_batch, sample_id):
+    input_batch = input_batch.cpu()
+    probability_matrix = input_batch[:, sample_id, :].detach().numpy()
+    labels, score = beam_ctc_decode(probability_matrix)
+    return labels
+
+
+def compute_edit_distance(output_batch, targets, target_lengths, num_samples):
+    total_edit_distance = 0
+    for i in range(0,num_samples):
+        label = decode_sample(output_batch, i)
+        s1 = [chr(x) for x in label]
+        s2 = [chr(x) for x in targets[i, :target_lengths[i]]]
+        distance = Levenshtein.distance(''.join(s1), ''.join(s2))
+        edit_distance = distance/len(s2)
+        total_edit_distance += edit_distance
+    avg_edit_distance = total_edit_distance/num_samples
+    return avg_edit_distance
 
 
 def beam_ctc_decode(probs, beam_size=10, blank=0):

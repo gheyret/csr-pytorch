@@ -13,3 +13,11 @@ checkpoint.pt
 model/ctc_model.pt
 __pycache__/ctc_decoder.cpython-37.pyc
 __pycache__/torchsummary.cpython-37.pyc
+Test.py
+model/ctc_cnn_unconverged.pt
+.idea/dictionaries/Brolof.xml
+*.0
+README.md___jb_old___
+*.pyc
+*.pyc
+Scripts/__pycache__/import_data.cpython-37.pyc

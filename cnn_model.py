@@ -81,35 +81,40 @@ class CTC_CNN(nn.Module):
         super(CTC_CNN, self).__init__()
         # torch.nn.Conv1d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros')
         self.layer1 = nn.Sequential(
-            nn.Conv1d(num_features, 250, 41, 1, 20),
-            nn.ReLU(),
+            nn.Conv1d(num_features, 250, 25, 2),
+            nn.BatchNorm1d(250),
+            nn.ReLU()
         )
         self.layer2 = nn.Sequential(
-            nn.Conv1d(250, 250, 7, 1, 3),
+            nn.Conv1d(250, 250, 3),
+            nn.BatchNorm1d(250),
             nn.ReLU(),
-            nn.Conv1d(250, 250, 7, 1, 3),
+            nn.Conv1d(250, 250, 3),
+            nn.BatchNorm1d(250),
             nn.ReLU()
         )
         self.layer3 = nn.Sequential(
-            nn.Conv1d(250, 2000, 31, 1, 15),
+            nn.Conv1d(250, 2000, 7),
+            nn.BatchNorm1d(2000),
             nn.ReLU()
         )
         self.layer4 = nn.Sequential(
             nn.Conv1d(2000, 2000, 1),
-            nn.ReLU(),
+            nn.BatchNorm1d(2000),
+            nn.ReLU()
         )
         self.layer5 = nn.Sequential(
             nn.Conv1d(2000, num_classes, 1)
         )
         self.softMax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x):
+    def forward(self, x, input_lengths = 0):
         # Input on Form: N x 1 x F x T
         # Output on Form: T x N x C for CTC_loss
         # N = Batch size, F = Features, T = Time, C = Classes
 
-        N, _, F, T = x.size()
-        x = x.view(N, F, T)
+        N, _, F, T_in = x.size()
+        x = x.view(N, F, T_in)
 
         # Layer 1 expects N x F x T
         #print("Size of input : ", x.size())
@@ -124,9 +129,10 @@ class CTC_CNN(nn.Module):
         out = self.layer5(out)
         #print("Size from fifth layer: ", out.size())
         out = self.softMax(out)
-        N, C, T = out.size()
-        out = out.view(T, N, C) # Ordering for CTCLoss TxNxC
-        return out
+        N, C, T_out = out.size()
+        out = out.view(T_out, N, C) # Ordering for CTCLoss TxNxC
+        output_lengths = input_lengths - (T_in-T_out)
+        return out, output_lengths
 
 
 class ConvNet2(nn.Module):
@@ -157,7 +163,7 @@ class ConvNet2(nn.Module):
             nn.Linear(256, 46))
         self.softMax = nn.LogSoftmax(dim=-1)
 
-    def forward(self, x, input_lengths):
+    def forward(self, x, input_lengths=None):
         #Todo: Clean up
         N, _, F, T_in = x.size()
         out = self.layer1(x)
@@ -175,6 +181,10 @@ class ConvNet2(nn.Module):
         out = out.view(T_out, N, C) # Ordering for CTCLoss TxNxC
 
         time_refactoring = T_out/T_in
-        output_lengths = torch.floor(input_lengths.float().mul_(time_refactoring)).int()
+        if input_lengths is not None:
+            output_lengths = torch.floor(input_lengths.float().mul_(time_refactoring)).int()
+            return out, output_lengths
+        else:
+            output_lengths = input_lengths
+            return out
 
-        return out, output_lengths
