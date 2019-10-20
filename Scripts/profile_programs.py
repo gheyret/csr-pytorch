@@ -6,7 +6,7 @@ Created on Mon Sep 23 14:36:34 2019
 """
 
 import cProfile
-#from train_model import trainModel
+#from train_model import train_model
 import train_model
 from train_model import runMultipleThreads
 
@@ -22,13 +22,13 @@ print("Finished")
 #%%
 
 import cProfile
-from train_model import trainModel
+from train_model import train_model
 
 
 # Anaconda prompt:
 # snakeviz E:\Documents\1.Chalmers\Examensarbete\Code\GoogleSpeechCommands\train_model.prof
 # pyprof2calltree -k -i E:\Documents\1.Chalmers\Examensarbete\Code\GoogleSpeechCommands\train_model.prof
 
-cProfile.run('trainModel()', 'train_model.out')
+cProfile.run('train_model()', 'train_model.out')
 
 print("Finished")

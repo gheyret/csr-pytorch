@@ -1,6 +1,5 @@
 
 from Scripts.import_data import ImportData
-from csv_to_list import csvToList
 import h5py
 import random
 import torch
@@ -14,9 +13,9 @@ def load_data_set_path(dataset_path):
 
 
 def load_data_set_indexes(dataset_path):
-    partition = {'train': csvToList(dataset_path + "train_idx.csv"),
-                 'validation': csvToList(dataset_path + "validation_idx.csv"),
-                 'test': csvToList(dataset_path + "test_idx.csv")}
+    partition = {'train': ImportData.csvToList(dataset_path + "train_idx.csv"),
+                 'validation': ImportData.csvToList(dataset_path + "validation_idx.csv"),
+                 'test': ImportData.csvToList(dataset_path + "test_idx.csv")}
 
     return partition
 

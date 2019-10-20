@@ -5,8 +5,12 @@ Created on Tue Sep 17 17:22:05 2019
 @author: Brolof
 """
 import os
+import numpy
+import csv
+
 
 class ImportData:
+
 #dataset_path = "./data/"
 
 # training_ID
@@ -14,6 +18,29 @@ class ImportData:
 # labels 
 # partition =  {train: [ID1,ID2,...], valdiation : [ID3,ID4,...], test: [ID5,ID6,...]}
 # labels = {ID1 : label1, ID2: label1, ID3: label2, ...}
+
+    def csvToList(path_to_csv):
+        with open(path_to_csv, newline='') as csvfile:
+            output_list = list(csv.reader(csvfile))
+            output_list = numpy.asarray(output_list)[0]
+            output_list = list(map(int, output_list))
+            return output_list
+
+    def load_data_set_path(dataset_path):
+        # VERBOSE = False
+        partition, labels, label_index_ID_table = ImportData.importData(dataset_path, 35)  # IDs
+        return partition, labels
+
+
+    def load_data_set_indexes(dataset_path_in):
+        partition_out = {'train': ImportData.csvToList(dataset_path_in + "train_idx.csv"),
+                     'validation': ImportData.csvToList(dataset_path_in + "validation_idx.csv"),
+                     'test': ImportData.csvToList(dataset_path_in + "test_idx.csv")}
+
+        return partition_out
+
+
+
 
     def importData(dataset_path, n_words = 35, n_samples = 105829, VERBOSE = False):
         # Read the testing file and extract all IDs

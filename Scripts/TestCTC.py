@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from csv_to_list import csvToList
 import csv
 T = 50      # Input sequence length
 C = 20      # Number of classes (including blank)

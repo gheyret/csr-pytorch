@@ -15,6 +15,9 @@ import csv
 import numpy
 import time
 import matplotlib.pyplot as plt
+from Scripts.import_data import ImportData
+
+
 #Todo: Make new Encoder for generated dataset
 class GoogleSpeechEncoder:
     def __init__(self):
@@ -26,7 +29,7 @@ class GoogleSpeechEncoder:
             label_dict[x] = i
         self.label_dict = label_dict
 
-        path_to_csv = "./input_data_hdf5_70m/label_index_ID_table.csv"
+        path_to_csv = "../data/GoogleSpeechCommands/hdf5_format/label_index_ID_table.csv"
         with open(path_to_csv, newline='') as csvfile:
             output_list = list(csv.reader(csvfile))
         output_list = [x for x in output_list if x]
@@ -107,7 +110,7 @@ class Dataset(data.Dataset, GoogleSpeechEncoder):
     def __getitem__(self, index):
         if self.dataset is None:
             self.dataset = h5py.File(self.hdf5file_path, "r", swmr=True) # SWMR = Single write multiple read
-
+        #index = numpy.random.randint(1,10)
         ID = self.list_IDs[index]
         y = self.dataset['ds/label'][ID]
         y = self.encode_labels(y)
@@ -182,3 +185,16 @@ class AudioDataLoader(DataLoader):
         """
         super(AudioDataLoader, self).__init__(*args, **kwargs)
         self.collate_fn = collate_fn_pad
+
+    def load_data_set_path(dataset_path):
+        # VERBOSE = False
+        partition, labels, label_index_ID_table = ImportData.importData(dataset_path, 35)  # IDs
+        return partition, labels
+
+    def load_data_set_indexes(dataset_path_in):
+        partition_out = {'train': ImportData.csvToList(dataset_path_in + "train_idx.csv"),
+                         'validation': ImportData.csvToList(dataset_path_in + "validation_idx.csv"),
+                         'test': ImportData.csvToList(dataset_path_in + "test_idx.csv")}
+
+        return partition_out
+
