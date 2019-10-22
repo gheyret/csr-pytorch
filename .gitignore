@@ -21,3 +21,6 @@ README.md___jb_old___
 *.pyc
 *.pyc
 Scripts/__pycache__/import_data.cpython-37.pyc
+prof.out
+*.out
+*.pyc

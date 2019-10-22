@@ -144,7 +144,7 @@ class ConvNet2(nn.Module):
             nn.BatchNorm2d(64),
             nn.Hardtanh(0, 20, inplace=True))
         self.layer2 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=[11, 7], stride=1, padding=[0, 3]),
+            nn.Conv2d(64, 128, kernel_size=[11, 7], stride=(1,2), padding=[0, 3]),
             nn.BatchNorm2d(128),
             nn.Hardtanh(0, 20, inplace=True))
         self.layer3 = nn.Sequential(
@@ -155,15 +155,16 @@ class ConvNet2(nn.Module):
             nn.Conv2d(256, 512, kernel_size=[10, 5], stride=1, padding=[0, 2]),  # 512
             nn.BatchNorm2d(512),
             nn.Hardtanh(0, 20, inplace=True))
+
+        self.rnn = nn.Sequential(
+            nn.LSTM(input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
         # self.globalMaxPool = nn.MaxPool2d()
         # self.drop_out = nn.Dropout()
         self.fc = nn.Sequential(
-            nn.Linear(512, 256),  #
-            nn.ReLU(),
-            nn.Linear(256, 46))
+            nn.Linear(512, 46))
         self.softMax = nn.LogSoftmax(dim=-1)
 
-    def forward(self, x, input_lengths=None):
+    def forward(self, x, input_lengths):
         #Todo: Clean up
         N, _, F, T_in = x.size()
         out = self.layer1(x)
@@ -171,20 +172,56 @@ class ConvNet2(nn.Module):
         out = self.layer3(out)
         out = self.layer4(out)
 
-        N, FM, F, T = out.size() # N = Batch size, FM = Feature maps, f = frequencies, t = time
-        out = out.view(N, T, F, FM)
+        N, FM, F, T_out = out.size() # N = Batch size, FM = Feature maps, f = frequencies, t = time
+
+        time_refactoring = T_out / T_in
+
+        output_lengths = torch.floor(input_lengths.float().mul_(time_refactoring)).int()
+
+        out = out.view(N, FM*F, T_out)
+        out = out.transpose(1, 2).transpose(0, 1).contiguous() # T x N x (F*FM)
+        for i in range(0, 1):
+            out = nn.utils.rnn.pack_padded_sequence(out, output_lengths, batch_first=False)
+            out, h = self.rnn(out)
+            out, _ = nn.utils.rnn.pad_packed_sequence(out)
+            out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
         # FC: connect a tensor(N, *, in_features) to (N, *, out_features)
-        out = self.fc(out) # NxTx1xC
+        out = self.fc(out) # TxNxC
         out = self.softMax(out)
+        return out, output_lengths
 
-        N, T_out, _, C  = out.size()
-        out = out.view(T_out, N, C) # Ordering for CTCLoss TxNxC
 
-        time_refactoring = T_out/T_in
-        if input_lengths is not None:
-            output_lengths = torch.floor(input_lengths.float().mul_(time_refactoring)).int()
-            return out, output_lengths
-        else:
-            output_lengths = input_lengths
-            return out
+class RNN(nn.Module):
+    def __init__(self, input_size, hidden_dim, n_layers):
+        super(RNN, self).__init__()
 
+        # Defining some parameters
+        self.hidden_dim = hidden_dim
+        self.n_layers = n_layers
+
+        # Defining the layers
+        # RNN Layer
+        self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_dim, num_layers=n_layers, batch_first=False)
+
+    def forward(self, x, hidden):
+        # input of shape (seq_len, batch, input_size)
+        # output of shape (seq_len, batch, num_directions * hidden_size)
+        batch_size = x.size(1)
+
+        # Initializing hidden state for first input using method defined below
+        hidden = self.init_hidden(batch_size)
+
+        # Passing in the input and hidden state into the model and obtaining outputs
+        out, hidden = self.rnn(x, hidden)
+
+        # Reshaping the outputs such that it can be fit into the fully connected layer
+        #out = out.contiguous().view(-1, self.hidden_dim)
+        #out = self.fc(out)
+
+        return out, hidden
+
+    def init_hidden(self, batch_size):
+        # This method generates the first hidden state of zeros which we'll use in the forward pass
+        # We'll send the tensor holding the hidden state to the device we specified earlier as well
+        hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
+        return hidden

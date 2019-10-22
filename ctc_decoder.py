@@ -42,17 +42,20 @@ def decode_sample(input_batch, sample_id):
     return labels
 
 
-def compute_edit_distance(output_batch, targets, target_lengths, num_samples):
-    total_edit_distance = 0
-    for i in range(0,num_samples):
-        label = decode_sample(output_batch, i)
-        s1 = [chr(x) for x in label]
-        s2 = [chr(x) for x in targets[i, :target_lengths[i]]]
-        distance = Levenshtein.distance(''.join(s1), ''.join(s2))
-        edit_distance = distance/len(s2)
-        total_edit_distance += edit_distance
-    avg_edit_distance = total_edit_distance/num_samples
-    return avg_edit_distance
+def compute_edit_distance(output_batch, targets, target_lengths, num_samples=0):
+    if not num_samples == 0:
+        total_edit_distance = 0
+        for i in range(0,num_samples):
+            label = decode_sample(output_batch, i)
+            s1 = [chr(x) for x in label]
+            s2 = [chr(x) for x in targets[i, :target_lengths[i]]]
+            distance = Levenshtein.distance(''.join(s1), ''.join(s2))
+            edit_distance = distance/len(s2)
+            total_edit_distance += edit_distance
+        avg_edit_distance = total_edit_distance/num_samples
+        return avg_edit_distance
+    else:
+        return 0
 
 
 def beam_ctc_decode(probs, beam_size=10, blank=0):

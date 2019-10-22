@@ -17,10 +17,9 @@ from torch.autograd import Variable
 from Scripts.import_data import ImportData
 from early_stopping import EarlyStopping
 from ctc_decoder import decode_sample, compute_edit_distance
-from tensorboard_logger import TensorboardLogger
+from tensorboard_logger import TensorboardLogger, VisdomLogger
 
 def print_cuda_information(use_cuda):
-    print('Script v1.1')
     print("############ CUDA Information #############")
     print('__Python VERSION:', sys.version)
     print('__pyTorch VERSION:', torch.__version__)
@@ -95,7 +94,8 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
             input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
 
             if epoch == 0 & i == 0:
-                logger.add_model_graph(model, local_batch)
+                logger_args = [local_batch, input_lengths]
+                #logger.add_model_graph(model, logger_args)
 
             # Transfer to GPU
             if use_cuda:  # On GPU
@@ -107,7 +107,7 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
             # Compute loss
             loss = criterion(outputs, local_targets, output_lengths, local_target_lengths)
             batch_loss = loss.item()
-            logger.update_scalar('continuous/loss', batch_loss)
+
             train_losses.append(batch_loss)
 
             # Backpropagation and perform Adam optimisation
@@ -118,9 +118,12 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
             if (i + 1) % print_frequency == 0:
                 evaluated_label = decode_sample(outputs, 0)
                 true_label = local_targets[0, :local_target_lengths[0]]
-                edit_distance = compute_edit_distance(outputs, local_targets, local_target_lengths, 5)
+                edit_distance = compute_edit_distance(outputs, local_targets, local_target_lengths, 0)
                 print('Evaluated: ', evaluated_label)
                 print('True:      ', true_label)
+
+                logger.update_scalar('continuous/loss', batch_loss)
+                visdom_logger.update(batch_loss)
 
                 print_metrics(current_epoch=epoch, current_batch=i, total_batches=n_training_batches, loss=loss,
                               edit_distance=edit_distance, start_time=batch_time)
@@ -216,7 +219,7 @@ def visualize_data_from_loader(training_generator_in, validation_generator_in):
 if __name__ == "__main__":
     # Parameters
     endEarlyForProfiling = False
-    maxNumBatches = 21
+    maxNumBatches = 101
     runOnCPUOnly = False
     if endEarlyForProfiling:
         max_epochs = 1
@@ -224,7 +227,7 @@ if __name__ == "__main__":
         max_epochs = 500
 
     batch_size = 400
-    print_frequency = 1
+    print_frequency = 20
     patience = 100
     learning_rate = 1e-3 # 1e-3 looks good, 1e-2 is too high
 
@@ -257,6 +260,7 @@ if __name__ == "__main__":
     training_generator, validation_generator, testing_generator = create_dataloaders(hdf5file_path, partition, params)
 
     logger = TensorboardLogger()
+    visdom_logger = VisdomLogger("Loss", 20)
     logger.run_logger()
     #for n_iter in range(100):
     #    logger.update_scalar('Loss/train', numpy.random.random())

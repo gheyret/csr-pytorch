@@ -49,3 +49,11 @@ https://github.com/LearnedVector/Wav2Letter
 https://github.com/SeanNaren/deepspeech.pytorch  
 https://www.endpoint.com/blog/2019/01/08/speech-recognition-with-tensorflow  
 https://github.com/jinserk/pytorch-asr/tree/master/asr  
+
+---
+**TensorBoard**
+https://itnext.io/how-to-use-tensorboard-5d82f8654496  
+https://pytorch.org/tutorials/intermediate/tensorboard_tutorial.html  
+https://pytorch.org/docs/stable/tensorboard.html  
+https://discuss.pytorch.org/t/visualize-live-graph-of-lose-and-accuracy/27267  
+https://github.com/facebookresearch/visdom  
