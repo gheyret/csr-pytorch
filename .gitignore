@@ -9,7 +9,7 @@ __pycache__/cnn_model.cpython-37.pyc
 __pycache__/csv_to_list.cpython-37.pyc
 __pycache__/early_stopping.cpython-37.pyc
 __pycache__/pytorch_dataset_hdf5_wav.cpython-37.pyc
-checkpoint.pt
+trained_models/checkpoint.pt
 model/ctc_model.pt
 __pycache__/ctc_decoder.cpython-37.pyc
 __pycache__/torchsummary.cpython-37.pyc
@@ -19,8 +19,8 @@ model/ctc_cnn_unconverged.pt
 *.0
 README.md___jb_old___
 *.pyc
-*.pyc
 Scripts/__pycache__/import_data.cpython-37.pyc
 prof.out
 *.out
-*.pyc
+*.pt
+/Scripts/

@@ -1,12 +1,18 @@
+"""
+Created on Mon Sep 23 11:42:39 2019
+
+Using GoogleSpeechCommands
+Used to generate numerous HDF5 files for testing purposes.
+
+"""
 
 import h5py
 import os
 import torchvision.transforms as transforms
 from scipy.io import wavfile
-from Scripts.front_end_processing import logfbank
-from Scripts.front_end_processing import normalizeSpectrogram
-from Scripts.front_end_processing import padSpectrogram
-import math
+from data.front_end_processing import logfbank
+from data.front_end_processing import normalizeSpectrogram
+from data.front_end_processing import padSpectrogram
 import numpy
 
 dataset_path = "../data/"

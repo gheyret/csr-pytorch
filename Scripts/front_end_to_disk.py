@@ -2,7 +2,13 @@
 """
 Created on Mon Sep 23 11:42:39 2019
 
-@author: Brolof
+Using GoogleSpeechCommands
+Used to generate spectrograms that can be fed directly to a CNN
+Each sample in the file structure is a spectrogram with mel-scale filters in one dim and frames in the other
+
+With num_workers > 0 this is unnecessary since CPU will handle these computations while GPU performs training. i.e, doing
+the front end processing live adds no delay as long as CPU isn't overloaded.
+
 """
 import os
 import torch
@@ -11,9 +17,9 @@ import numpy
 import matplotlib.pyplot as plt
 from PIL import Image
 from scipy.io import wavfile
-from Scripts.front_end_processing import logfbank
-from Scripts.front_end_processing import normalizeSpectrogram
-from Scripts.front_end_processing import padSpectrogram
+from data.front_end_processing import logfbank
+from data.front_end_processing import normalizeSpectrogram
+from data.front_end_processing import padSpectrogram
 
 dataset_path = "./data/"
 output_path = "./input_data/"

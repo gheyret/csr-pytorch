@@ -2,20 +2,18 @@
 """
 Created on Tue Sep 24 13:17:39 2019
 
-@author: Brolof
 """
 import h5py
 import torch
 from torch.utils import data
 from torchvision.transforms import transforms
-from Scripts.front_end_processing import logfbank
+from data.front_end_processing import logfbank
 from torch.utils.data import DataLoader
 import csv
 
 import numpy
 import time
 import matplotlib.pyplot as plt
-from Scripts.import_data import ImportData
 
 
 #Todo: Make new Encoder for generated dataset
@@ -185,16 +183,4 @@ class AudioDataLoader(DataLoader):
         """
         super(AudioDataLoader, self).__init__(*args, **kwargs)
         self.collate_fn = collate_fn_pad
-
-    def load_data_set_path(dataset_path):
-        # VERBOSE = False
-        partition, labels, label_index_ID_table = ImportData.importData(dataset_path, 35)  # IDs
-        return partition, labels
-
-    def load_data_set_indexes(dataset_path_in):
-        partition_out = {'train': ImportData.csvToList(dataset_path_in + "train_idx.csv"),
-                         'validation': ImportData.csvToList(dataset_path_in + "validation_idx.csv"),
-                         'test': ImportData.csvToList(dataset_path_in + "test_idx.csv")}
-
-        return partition_out
 

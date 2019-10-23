@@ -1,23 +1,8 @@
 
-from Scripts.import_data import ImportData
+from data.import_data_GSC import load_data_set_path, load_data_set_indexes
 import h5py
 import random
-import torch
 import time
-
-def load_data_set_path(dataset_path):
-    # VERBOSE = False
-    partition, labels, label_index_ID_table = ImportData.importData(dataset_path,35)# IDs
-    # labels = # Labels
-    return partition, labels
-
-
-def load_data_set_indexes(dataset_path):
-    partition = {'train': ImportData.csvToList(dataset_path + "train_idx.csv"),
-                 'validation': ImportData.csvToList(dataset_path + "validation_idx.csv"),
-                 'test': ImportData.csvToList(dataset_path + "test_idx.csv")}
-
-    return partition
 
 test_ID = []
 with open("../data/" + "testing_list.txt", "r") as f:

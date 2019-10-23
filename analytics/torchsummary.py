@@ -7,7 +7,6 @@ Created on Tue Sep 24 23:30:57 2019
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 
 from collections import OrderedDict
 import numpy as np
@@ -23,22 +22,33 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
 
             m_key = "%s-%i" % (class_name, module_idx + 1)
             summary[m_key] = OrderedDict()
-            summary[m_key]["input_shape"] = list(input[0].size())
+            if isinstance(input[0], torch.nn.utils.rnn.PackedSequence):
+                x, _ = nn.utils.rnn.pad_packed_sequence(input[0])
+                summary[m_key]["input_shape"] = list(x.size())
+            else:
+                summary[m_key]["input_shape"] = list(input[0].size())
             summary[m_key]["input_shape"][0] = batch_size
             if isinstance(output, (list, tuple)):
-                summary[m_key]["output_shape"] = [
-                    [-1] + list(o.size())[1:] for o in output
-                ]
+                if isinstance(output[0], torch.nn.utils.rnn.PackedSequence):
+                    x, _ = nn.utils.rnn.pad_packed_sequence(output[0])
+                    summary[m_key]["output_shape"] = list(x.size())
+                    # summary[m_key]["output_shape"] = [[-1] + list(o.size())[1:] for o in output]
             else:
                 summary[m_key]["output_shape"] = list(output.size())
-                summary[m_key]["output_shape"][0] = batch_size
+                #summary[m_key]["output_shape"][0] = batch_size
 
             params = 0
-            if hasattr(module, "weight") and hasattr(module.weight, "size"):
-                params += torch.prod(torch.LongTensor(list(module.weight.size())))
-                summary[m_key]["trainable"] = module.weight.requires_grad
-            if hasattr(module, "bias") and hasattr(module.bias, "size"):
-                params += torch.prod(torch.LongTensor(list(module.bias.size())))
+            if hasattr(module, "_parameters"):
+                for key, value in module._parameters.items():
+                    params += torch.prod(torch.LongTensor(list(value.size())))
+                    if "weight" in key:
+                        summary[m_key]["trainable"] = value.requires_grad
+
+            # if hasattr(module, "weight") and hasattr(module.weight, "size"):
+            #    params += torch.prod(torch.LongTensor(list(module.weight.size())))
+            #    summary[m_key]["trainable"] = module.weight.requires_grad
+            # if hasattr(module, "bias") and hasattr(module.bias, "size"):
+            #    params += torch.prod(torch.LongTensor(list(module.bias.size())))
             summary[m_key]["nb_params"] = params
 
         if (
@@ -64,8 +74,10 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
         input_size = [input_size]
 
     # batch_size of 2 for batchnorm
-    x = [torch.rand(2, *in_size).type(dtype) for in_size in input_size]
-    # print(type(x[0]))
+    input_batch = [torch.rand(2, *in_size).type(dtype) for in_size in input_size]
+    max_len = input_size[0][2]
+    input_length = torch.tensor([max_len, max_len])
+    args = [input_batch[0], input_length]
 
     # create properties
     summary = OrderedDict()
@@ -76,7 +88,8 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
 
     # make a forward pass
     # print(x.shape)
-    model(*x)
+
+    model(*args)
 
     # remove these hooks
     for h in hooks:

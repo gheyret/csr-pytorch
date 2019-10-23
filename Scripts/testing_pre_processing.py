@@ -8,12 +8,12 @@ Created on Sun Sep 22 11:33:32 2019
 import torch
 import time
 import matplotlib.pyplot as plt
-from Scripts.front_end_processing import fbank
-from Scripts.front_end_processing import logfbank
-from Scripts.front_end_processing import logfbankGPU
-from Scripts.front_end_processing import createSpectrogram
-from Scripts.front_end_processing import normalizeSpectrogram
-from Scripts.front_end_processing import padSpectrogram
+from data.front_end_processing import fbank
+from data.front_end_processing import logfbank
+from data.front_end_processing import logfbankGPU
+from data.front_end_processing import createSpectrogram
+from data.front_end_processing import normalizeSpectrogram
+from data.front_end_processing import padSpectrogram
 from scipy.io import wavfile
 nfilt = 70
 nfft = 512

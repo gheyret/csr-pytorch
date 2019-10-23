@@ -2,7 +2,10 @@
 """
 Created on Tue Sep 24 11:20:10 2019
 
-@author: Brolof
+Using GoogleSpeechCommands
+Used to generate HDF5 file.
+Each sample in the hdf5 file is a spectrogram with mel-scale filters in one dim and frames in the other
+
 """
 
 import h5py
@@ -11,10 +14,9 @@ import csv
 import torchvision.transforms as transforms
 import numpy
 from scipy.io import wavfile
-from Scripts.front_end_processing import logfbank
-from Scripts.front_end_processing import normalizeSpectrogram
-from Scripts.front_end_processing import padSpectrogram
-from Scripts.import_data import ImportData
+from data.front_end_processing import logfbank
+from data.front_end_processing import normalizeSpectrogram
+from data.front_end_processing import padSpectrogram
 
 dataset_path = "./data/"
 #output_path = "./input_data/"
@@ -150,7 +152,7 @@ for i in range(0,1000):
 #%%
 dataset_path = "./data/"
 VERBOSE = False      
-_,partition, _, _ = ImportData.importData(dataset_path,35)# IDs            
+_,partition, _, _ = importData(dataset_path, 35)# IDs
     
 train_idx = partition['train']
 validation_idx = partition['validation']

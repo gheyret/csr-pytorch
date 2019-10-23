@@ -11,7 +11,7 @@ Created on Sat Sep 21 15:22:52 2019
 import numpy
 from scipy import signal
 from scipy.io import wavfile
-from Scripts import signal_processing
+from data import signal_processing
 
 
 #from numba import vectorize

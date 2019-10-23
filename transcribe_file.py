@@ -8,9 +8,9 @@ import os
 import torch
 from cnn_model import ConvNet
 from scipy.io import wavfile
-from Scripts.front_end_processing import logfbank
+from data.front_end_processing import logfbank
 from torchvision.transforms import transforms
-from pytorch_dataset_hdf5_wav import GoogleSpeechEncoder
+from data.pytorch_dataset_hdf5_wav import GoogleSpeechEncoder
 
 
 
@@ -79,7 +79,7 @@ data_ID, label_ID = get_data_id(dataset_path)
 # wav_path = dataset_path + "backward/0a24b400e_nohash_0"
 
 # Load model
-model_path = "./model/ctc_model.pt"
+model_path = "./trained_models/CNN-BLSTMx2.pt"
 model = load_model(model_path)
 
 spec = wav_to_spec(dataset_path, data_ID[sample_idx])
@@ -95,16 +95,15 @@ print(output)
 print(true_label)
 print(decode_label(true_label))
 
-import numpy
 from ctc_decoder import greedy_decode_ctc, beam_ctc_decode
 
-predicted_label_greedy = greedy_decode_ctc(output)
+predicted_label_greedy = greedy_decode_ctc(output, balnk_code=0)
 print(predicted_label_greedy)
 phonetic_out = decode_label(predicted_label_greedy)
 print(phonetic_out)
 probs = output[:,0,:].detach().numpy()
 
-labels, score = beam_ctc_decode(probs)
+labels, score = beam_ctc_decode(probs, balnk_code=0)
 print(labels)
 print(score)
 # Predict and decode

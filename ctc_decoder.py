@@ -4,10 +4,12 @@ import math
 import collections
 import Levenshtein
 
+
 def collapse_sequence(input_sequence, blank_code):
     collapsed_sequence = [input_sequence[i] for i in range(len(input_sequence)) if (i==0) or input_sequence[i] != input_sequence[i-1]]
     filtered_sequence = [value for value in collapsed_sequence if value != blank_code]
     return filtered_sequence
+
 
 def greedy_decode_ctc(input_sample, blank_code):
     top_indices = input_sample.topk(k=1,dim=2)[1]
@@ -19,9 +21,11 @@ def greedy_decode_ctc(input_sample, blank_code):
 
 NEG_INF = -float("inf")
 
+
 def make_new_beam():
     fn = lambda : (NEG_INF, NEG_INF)
     return collections.defaultdict(fn)
+
 
 def logsumexp(*args):
     """
@@ -43,7 +47,7 @@ def decode_sample(input_batch, sample_id):
 
 
 def compute_edit_distance(output_batch, targets, target_lengths, num_samples=0):
-    if not num_samples == 0:
+    if num_samples > 0:
         total_edit_distance = 0
         for i in range(0,num_samples):
             label = decode_sample(output_batch, i)
@@ -55,7 +59,7 @@ def compute_edit_distance(output_batch, targets, target_lengths, num_samples=0):
         avg_edit_distance = total_edit_distance/num_samples
         return avg_edit_distance
     else:
-        return 0
+        return 0.0
 
 
 def beam_ctc_decode(probs, beam_size=10, blank=0):

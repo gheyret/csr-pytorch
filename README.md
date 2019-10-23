@@ -57,3 +57,25 @@ https://pytorch.org/tutorials/intermediate/tensorboard_tutorial.html
 https://pytorch.org/docs/stable/tensorboard.html  
 https://discuss.pytorch.org/t/visualize-live-graph-of-lose-and-accuracy/27267  
 https://github.com/facebookresearch/visdom  
+
+
+---
+**RNN:**
+* N x 1 x F x T
+* -> Conv
+* N x FM x F x T
+
+* Combine before RNN ->
+* N x (FM*F) x T
+
+* Reorder ->
+* N x T x (FM*F)
+* T x N x (FM*F)
+
+* Rnn defined such that: FM*F = input_size, hidden_size = some value
+* Then add a fully connected layer after that projects hidden_size for each timestep to number of classes.
+
+---
+**Profiling**  
+-python -m cProfile -o prof.out train_model.py  
+-snakeviz prof.out  
