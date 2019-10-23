@@ -3,8 +3,8 @@
 
 ---
              GSC        Val Loss        Params
-ConvNet2 :  3.7%PER     0.177223        14.3M
-
+ConvNet2 :  3.7%PER     0.177223        14.3M  
+3x LSTM  :  6.7%PER     0.296101        18.5M
 
 ---
 

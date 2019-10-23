@@ -225,7 +225,7 @@ def visualize_data_from_loader(training_generator_in, validation_generator_in):
 
 if __name__ == "__main__":
     # Parameters
-    continue_training = True
+    continue_training = False
     model_path_to_train = "./trained_models/checkpoint.pt"
     model_path_to_evaluate = "./trained_models/checkpoint.pt"  # checkpoint.pt  CNN-BLSTMx2 = 0.1176 PER
     endEarlyForProfiling = False

@@ -134,6 +134,29 @@ class CTC_CNN(nn.Module):
         output_lengths = input_lengths - (T_in-T_out)
         return out, output_lengths
 
+class SequenceWise(nn.Module):
+    def __init__(self, module):
+        """
+        By SeanNaren/Deepspeech
+        Collapses input of dim T*N*H to (T*N)*H, and applies to a module.
+        Allows handling of variable sequence lengths and minibatch sizes.
+        :param module: Module to apply input to.
+        """
+        super(SequenceWise, self).__init__()
+        self.module = module
+
+    def forward(self, x):
+        t, n = x.size(0), x.size(1)
+        x = x.view(t * n, -1)
+        x = self.module(x)
+        x = x.view(t, n, -1)
+        return x
+
+    def __repr__(self):
+        tmpstr = self.__class__.__name__ + ' (\n'
+        tmpstr += self.module.__repr__()
+        tmpstr += ')'
+        return tmpstr
 
 class ConvNet2(nn.Module):
     # Todo: Should have wider kernel so that it looks more before and after
@@ -159,8 +182,12 @@ class ConvNet2(nn.Module):
         # Todo: Investigate if batchnorm would speed up training between RNN layers
         self.rnn = nn.Sequential(
             nn.LSTM(input_size=1536, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
+        self.batchNorm = SequenceWise(nn.BatchNorm1d(512))
         self.rnn2 = nn.Sequential(
             nn.LSTM(input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
+        self.rnn3 = nn.Sequential(
+            nn.LSTM(input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
+
         self.fc = nn.Sequential(
             nn.Linear(512, 46))
         self.softMax = nn.LogSoftmax(dim=-1)
@@ -184,11 +211,19 @@ class ConvNet2(nn.Module):
         out, _ = nn.utils.rnn.pad_packed_sequence(out)
         out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
 
+        out = self.batchNorm(out)
+
         out = nn.utils.rnn.pack_padded_sequence(out, output_lengths, batch_first=False)
         out, h = self.rnn2(out)
         out, _ = nn.utils.rnn.pad_packed_sequence(out)
         out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
 
+        out = self.batchNorm(out)
+
+        out = nn.utils.rnn.pack_padded_sequence(out, output_lengths, batch_first=False)
+        out, h = self.rnn3(out)
+        out, _ = nn.utils.rnn.pad_packed_sequence(out)
+        out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
 
         # FC: connect a tensor(N, *, in_features) to (N, *, out_features)
         out = self.fc(out) # TxNxC
