@@ -2,8 +2,13 @@
  Continuous speech recognition using pytorch
 
 ---
+             GSC        Val Loss        Params
+ConvNet2 :  3.7%PER     0.177223        14.3M
 
-##Pipeline:
+
+---
+
+#Pipeline:
 
 * Reads wav form from hdf5  
 * Transforms it into a spectrogram
@@ -12,7 +17,7 @@
 
 ---
 
-##**Datasets:**
+#**Datasets:**
 * Google speech commands (currently used) "../data/"
 * Generated dataset  (not yet implemented)
 
@@ -20,15 +25,12 @@ These require different dataloaders since the conversion from word to phoneme se
 
 
 ---
-##TODO:
-**Take care of random scripts.**
-
-
 **CTC Decoding:**  
-[ ] Greedy  
-[ ] Beam search  
-[ ] CTC_Loss ?  
-[ ] LER/Edit distance??  
+[X] Greedy  
+[X] Beam search  
+[X] CTC_Loss ?  
+[X] LER/Edit distance??  
+[ ] Tensor implementation of CTC beam search and CTC loss
 https://github.com/gaoyiyeah/speech-ctc/blob/master/speech/models/ctc_decoder.py  
 https://github.com/jpuigcerver/pytorch-baidu-ctc  
 https://github.com/budzianowski/PyTorch-Beam-Search-Decoding/blob/master/decode_beam.py  

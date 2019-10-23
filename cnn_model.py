@@ -140,29 +140,27 @@ class ConvNet2(nn.Module):
     def __init__(self):
         super(ConvNet2, self).__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=[41, 11], stride=(1, 2), padding=[0, 5]),
+            nn.Conv2d(1, 64, kernel_size=[5, 5], stride=(2, 2), padding=[0, 2]),
             nn.BatchNorm2d(64),
             nn.Hardtanh(0, 20, inplace=True))
         self.layer2 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=[11, 7], stride=(1,2), padding=[0, 3]),
+            nn.Conv2d(64, 128, kernel_size=[5, 5], stride=(2,  2), padding=[0, 2]),
             nn.BatchNorm2d(128),
             nn.Hardtanh(0, 20, inplace=True))
         self.layer3 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=[11, 5], stride=1, padding=[0, 2]),  # 256
+            nn.Conv2d(128, 256, kernel_size=[3, 3], stride=(2, 1), padding=[0, 1]),  # 256
             nn.BatchNorm2d(256),
             nn.Hardtanh(0, 20, inplace=True))
         self.layer4 = nn.Sequential(
-            nn.Conv2d(256, 512, kernel_size=[10, 5], stride=1, padding=[0, 2]),  # 512
+            nn.Conv2d(256, 512, kernel_size=[3, 3], stride=(2, 1), padding=[0, 1]),  # 512
             nn.BatchNorm2d(512),
             nn.Hardtanh(0, 20, inplace=True))
 
         # Todo: Investigate if batchnorm would speed up training between RNN layers
         self.rnn = nn.Sequential(
-            nn.LSTM(input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
+            nn.LSTM(input_size=1536, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
         self.rnn2 = nn.Sequential(
             nn.LSTM(input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
-        # self.globalMaxPool = nn.MaxPool2d()
-        # self.drop_out = nn.Dropout()
         self.fc = nn.Sequential(
             nn.Linear(512, 46))
         self.softMax = nn.LogSoftmax(dim=-1)
