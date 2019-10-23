@@ -10,7 +10,7 @@ Each sample in the hdf5 file is a spectrogram with mel-scale filters in one dim 
 import h5py
 import os
 import csv
-from data.import_data_GSC import importData
+from data.import_data_GSC import import_data
 from scipy.io import wavfile
 import numpy
 
@@ -79,7 +79,7 @@ if not os.path.exists(hdf5_dir + "label_index_ID_table"):
         for key, val in label_index_ID_table.items():
             writer.writerow([key, val])
 
-partition, labels, _ = importData(dataset_path)  # IDs
+partition, labels, _ = import_data(dataset_path)  # IDs
 train_idx = partition['train']
 validation_idx = partition['validation']
 test_idx = partition['test']

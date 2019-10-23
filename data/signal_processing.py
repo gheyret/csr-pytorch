@@ -6,7 +6,6 @@ Created on Sun Sep 22 11:07:00 2019
 """
 
 import decimal
-
 import numpy
 import math
 import logging

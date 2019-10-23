@@ -173,6 +173,7 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
 
 
 def evaluate_on_testing_set(model_in, testing_generator_in, criterion):
+    import math
     # Testing
     testing_losses = []
     testing_edit_distances = []
@@ -199,15 +200,16 @@ def evaluate_on_testing_set(model_in, testing_generator_in, criterion):
             loss = criterion(outputs, local_targets, output_lengths, local_target_lengths)  # CTC loss function
             batch_size = local_targets.size(0)
             total += batch_size
+            batch_size = math.floor(batch_size*0.25)
             testing_losses.append(loss.item())
             edit_distance = compute_edit_distance(outputs, local_targets, local_target_lengths, batch_size)
             testing_edit_distances.append(edit_distance)
 
-        testing_loss = numpy.average(testing_losses)
-        testing_edit_distance = numpy.average(testing_edit_distances)
+            testing_loss = numpy.average(testing_losses)
+            testing_edit_distance = numpy.average(testing_edit_distances)
 
-    print('Testing Accuracy of the model on the ', total,
-          ' testing images. Loss: {:.3f}, PER: {:.4f}'.format(testing_loss, testing_edit_distance))
+            print('Testing Accuracy of the model on the ', total,
+                  ' testing images. Loss: {:.3f}, PER: {:.4f}'.format(testing_loss, testing_edit_distance))
 
 
 def visualize_data_from_loader(training_generator_in, validation_generator_in):
@@ -223,8 +225,8 @@ def visualize_data_from_loader(training_generator_in, validation_generator_in):
 
 if __name__ == "__main__":
     # Parameters
-    continue_training = False
-    model_path_to_train = "./trained_models/CNN-BLSTMx2.pt"
+    continue_training = True
+    model_path_to_train = "./trained_models/checkpoint.pt"
     model_path_to_evaluate = "./trained_models/checkpoint.pt"  # checkpoint.pt  CNN-BLSTMx2 = 0.1176 PER
     endEarlyForProfiling = False
     maxNumBatches = 101
@@ -236,7 +238,7 @@ if __name__ == "__main__":
 
     mini_batch_size = 400
     print_frequency = 20
-    patience = 5
+    patience = 3
     learning_rate = 1e-3 # 1e-3 looks good, 1e-2 is too high
 
     # Datasets test

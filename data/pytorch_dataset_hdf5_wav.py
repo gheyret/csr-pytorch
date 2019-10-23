@@ -21,7 +21,7 @@ class GoogleSpeechEncoder:
     def __init__(self):
         self.label_list = ['_', ' ', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B', 'CH', 'D', 'DH', 'EH', 'EHR', 'ER', 'EY', 'F',
                            'G', 'H', 'IH', 'IY', 'IYR', 'JH', 'K', 'L', 'M', 'N', 'NG', 'O', 'OW', 'OY', 'P', 'R', 'S',
-                           'SH', 'T', 'TH', 'UH', 'UHR', 'UW', 'V', 'W', 'Y', 'Z', 'ZH'] # 0 = blank
+                           'SH', 'T', 'TH', 'UH', 'UHR', 'UW', 'V', 'W', 'Y', 'Z', 'ZH']  # 0 = blank
         label_dict = dict()
         for i, x in enumerate(self.label_list):
             label_dict[x] = i

@@ -49,7 +49,7 @@ def decode_sample(input_batch, sample_id):
 def compute_edit_distance(output_batch, targets, target_lengths, num_samples=0):
     if num_samples > 0:
         total_edit_distance = 0
-        for i in range(0,num_samples):
+        for i in range(0, num_samples):
             label = decode_sample(output_batch, i)
             s1 = [chr(x) for x in label]
             s2 = [chr(x) for x in targets[i, :target_lengths[i]]]
