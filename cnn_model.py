@@ -9,7 +9,6 @@ import torch
 
 
 class ConvNet(nn.Module):
-    # Todo: Should have wider kernel so that it looks more before and after
     def __init__(self):
         super(ConvNet, self).__init__()
         self.layer1 = nn.Sequential(
@@ -35,48 +34,26 @@ class ConvNet(nn.Module):
         self.softMax = nn.LogSoftmax(dim=-1)
 
     def forward(self, x):
-        #Todo: Clean up
-        print(x.size())
         out = self.layer1(x)
-        #print("Size from first layer: ", out.size())
         out = self.layer2(out)
-        #print("Size from second layer: ", out.size())
         out = self.layer3(out)
-        #print("Size from 3rd layer: ", out.size())
         out = self.layer4(out)
-        #print("Size from 4th layer: ", out.size())
 
-        # Apply global max pool:
-        #out = nn.functional.max_pool2d(out, kernel_size=out.size()[2:])
-        #print("Size from 5th layer: ", out.size())
-
-        #out = out.reshape(out.size(0), -1)
-        #print("Size from second layer reshaped: ", out.size())
-
-        #out = self.drop_out(out)
         n, fm, f, t = out.size() # N = Batch size, FM = Feature maps, f = frequencies, t = time
         out = out.view(n, t, f, fm)
-        #print("Size from tensor reshaped: ", out.size())
 
         # connect a tensor(N, *, in_features) to (N, *, out_features)
         out = self.fc(out) # NxTx1xC
         out = self.softMax(out)
-        # Todo: Perhaps check if the model is currently training, whether softmax should be applied or not
 
         batch_size, frames, f, classes = out.size() # N = Batch size, FM = Feature maps, f = frequencies, t = time
         out = out.view(frames,batch_size,classes) # Ordering for CTCLoss TxNxC
-        #print("Size from 5th layer: ", out.size())
-
 
         return out
 
-#50,16,20
-#T, N, C
-#Seq length, Batch size, Classes
-
 
 class CTC_CNN(nn.Module):
-    # Wav2Letter
+    # Heavily inspired by Wav2Letter
     def __init__(self, num_features = 70, num_classes = 46):
         super(CTC_CNN, self).__init__()
         # torch.nn.Conv1d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros')
@@ -117,22 +94,17 @@ class CTC_CNN(nn.Module):
         x = x.view(N, F, T_in)
 
         # Layer 1 expects N x F x T
-        #print("Size of input : ", x.size())
         out = self.layer1(x)
-        #print("Size from first layer: ", out.size())
         out = self.layer2(out)
-        #print("Size from second layer: ", out.size())
         out = self.layer3(out)
-        #print("Size from third layer: ", out.size())
         out = self.layer4(out)
-        #print("Size from fourth layer: ", out.size())
         out = self.layer5(out)
-        #print("Size from fifth layer: ", out.size())
         out = self.softMax(out)
         N, C, T_out = out.size()
         out = out.view(T_out, N, C) # Ordering for CTCLoss TxNxC
         output_lengths = input_lengths - (T_in-T_out)
         return out, output_lengths
+
 
 class SequenceWise(nn.Module):
     def __init__(self, module):
@@ -158,8 +130,8 @@ class SequenceWise(nn.Module):
         tmpstr += ')'
         return tmpstr
 
+
 class ConvNet2(nn.Module):
-    # Todo: Should have wider kernel so that it looks more before and after
     def __init__(self):
         super(ConvNet2, self).__init__()
         self.layer1 = nn.Sequential(
@@ -179,7 +151,6 @@ class ConvNet2(nn.Module):
             nn.BatchNorm2d(512),
             nn.Hardtanh(0, 20, inplace=True))
 
-        # Todo: Investigate if batchnorm would speed up training between RNN layers
         self.rnn = nn.Sequential(
             nn.LSTM(input_size=1536, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
         self.batchNorm = SequenceWise(nn.BatchNorm1d(512))

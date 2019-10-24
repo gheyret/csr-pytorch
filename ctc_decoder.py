@@ -64,6 +64,8 @@ def compute_edit_distance(output_batch, targets, target_lengths, num_samples=0):
 
 def beam_ctc_decode(probs, beam_size=10, blank=0):
     """
+    Source: gaoyiyeah/speech-ctc/speech/models/ctc_decoder.py
+
     Performs inference for the given output probabilities.
     Arguments:
       probs: The output probabilities (e.g. post-softmax) for each

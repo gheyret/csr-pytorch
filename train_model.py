@@ -58,9 +58,11 @@ def print_metrics(current_epoch, current_batch, total_batches, loss, edit_distan
                   batch_size * print_frequency / (time.time() - start_time)))
 
 
-def train_model(model_input, training_generator, validation_generator, max_epochs, batch_size, optimizer, criterion, using_cuda):
+def train_model(model_input, training_generator, validation_generator, max_epochs,
+                batch_size, optimizer, criterion, using_cuda, early_stopping):
     """
 
+    :param early_stopping:
     :param model_input:
     :param training_generator:
     :param validation_generator:
@@ -74,16 +76,12 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
     print('Function train_model called by: ', repr(__name__))
     total_time = time.time()
     model = model_input
-    exit_early = False
     train_losses = []
     valid_losses = []
-    # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=patience, verbose=True)
     n_training_batches = len(training_generator)
     n_validation_batches = len(validation_generator)
     print("Starting training:")
     batch_time = time.time()
-    # Todo: Proper tracking, like tensorboard
     for epoch in range(max_epochs):
 
         # Training
@@ -94,7 +92,7 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
 
             if epoch == 0 & i == 0:
                 logger_args = [local_batch, input_lengths]
-                # logger.add_model_graph(model, logger_args)
+                # logger.add_model_graph(model, logger_args)  # Can't get model graph to work with RNN...
 
             # Transfer to GPU
             if using_cuda:  # On GPU
@@ -104,7 +102,6 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
             # Compute loss
             loss = criterion(outputs, local_targets, output_lengths, local_target_lengths)
             batch_loss = loss.item()
-
             train_losses.append(batch_loss)
 
             # Backpropagation and perform Adam optimisation
@@ -123,50 +120,48 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
                 visdom_logger.update(batch_loss, edit_distance)
 
                 print_metrics(current_epoch=epoch, current_batch=i, total_batches=n_training_batches, loss=loss,
-                              edit_distance=edit_distance, start_time=batch_time, max_epochs=max_epochs, batch_size=batch_size)
+                              edit_distance=edit_distance, start_time=batch_time, max_epochs=max_epochs,
+                              batch_size=batch_size)
                 batch_time = time.time()
 
-            if ((i == maxNumBatches) & endEarlyForProfiling):
-                print(" Exiting program early! ")
-                exit_early = True
+            early_stopping.exit_program_early()
+            if early_stopping.stop_program:
                 break
+        if early_stopping.stop_program:
+            break
 
         # Validation
-        if not exit_early:
-            with torch.set_grad_enabled(False):
-                model.eval()
-                batch_time = time.time()
-                for (local_data) in validation_generator:
-                    local_batch, local_targets, local_input_percentages, local_target_lengths = local_data
-                    input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
-                    # Transfer to GPU
-                    if using_cuda:  # On GPU
-                        local_batch, local_targets = local_batch.cuda(non_blocking=True), local_targets.cuda(
-                            non_blocking=True)
-                    # Run the forward pass
-                    outputs, output_lengths = model(local_batch, input_lengths)
-                    loss = criterion(outputs, local_targets, output_lengths, local_target_lengths)  # CTC loss function
+        with torch.set_grad_enabled(False):
+            model.eval()
+            batch_time = time.time()
+            for (local_data) in validation_generator:
+                local_batch, local_targets, local_input_percentages, local_target_lengths = local_data
+                input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
+                # Transfer to GPU
+                if using_cuda:  # On GPU
+                    local_batch, local_targets = local_batch.cuda(non_blocking=True), local_targets.cuda(
+                        non_blocking=True)
+                # Run the forward pass
+                outputs, output_lengths = model(local_batch, input_lengths)
+                loss = criterion(outputs, local_targets, output_lengths, local_target_lengths)  # CTC loss function
+                valid_losses.append(loss.item())
 
-                    valid_losses.append(loss.item())
+            # calculate average loss over an epoch
+            valid_loss = numpy.average(valid_losses)
+            train_losses = []
+            valid_losses = []
 
-                # print training/validation statistics
-                # calculate average loss over an epoch
-                #train_loss = numpy.average(train_losses)
-                valid_loss = numpy.average(valid_losses)
-                train_losses = []
-                valid_losses = []
-                early_stopping(valid_loss, model)
-
-            print('---------------------------------------------------------------------------------------------')
-            per = 0
-            print_metrics(current_epoch=epoch, current_batch=n_validation_batches-1, total_batches=n_validation_batches,
-                          loss=loss, edit_distance=edit_distance, start_time=batch_time, max_epochs=max_epochs, batch_size=batch_size)
-            print('#############################################################################################')
-            if early_stopping.early_stop:
-                print("Early stopping")
-                break
-            model.train()
-
+        print('---------------------------------------------------------------------------------------------')
+        early_stopping(valid_loss, model)
+        edit_distance = 0.0
+        print_metrics(current_epoch=epoch, current_batch=n_validation_batches - 1, total_batches=n_validation_batches,
+                      loss=valid_loss, edit_distance=edit_distance, start_time=batch_time, max_epochs=max_epochs,
+                      batch_size=batch_size)
+        print('#############################################################################################')
+        if early_stopping.stop_training_early:
+            print("Early stopping")
+            break
+        model.train()
 
     print('Finished Training')
     print("Total training time: ", (time.time() - total_time), " s")
@@ -179,7 +174,7 @@ def evaluate_on_testing_set(model_in, testing_generator_in, criterion):
     testing_edit_distances = []
     n_testing_batches = len(testing_generator_in)
     with torch.set_grad_enabled(False):
-        correct = 0
+        fraction = 0.25
         total = 0
         i = 0
         model_in.eval()
@@ -195,21 +190,23 @@ def evaluate_on_testing_set(model_in, testing_generator_in, criterion):
                 local_batch, local_targets = local_batch.cuda(non_blocking=True), local_targets.cuda(
                     non_blocking=True)
 
-            # Track the accuracy
+            # Run the forward pass
             outputs, output_lengths = model_in(local_batch, input_lengths)
             loss = criterion(outputs, local_targets, output_lengths, local_target_lengths)  # CTC loss function
+            testing_losses.append(loss.item())
+
+            # Track the accuracy
             batch_size = local_targets.size(0)
             total += batch_size
-            batch_size = math.floor(batch_size*0.25)
-            testing_losses.append(loss.item())
+            batch_size = math.floor(batch_size * fraction)
             edit_distance = compute_edit_distance(outputs, local_targets, local_target_lengths, batch_size)
             testing_edit_distances.append(edit_distance)
 
             testing_loss = numpy.average(testing_losses)
             testing_edit_distance = numpy.average(testing_edit_distances)
-
             print('Testing Accuracy of the model on the ', total,
                   ' testing images. Loss: {:.3f}, PER: {:.4f}'.format(testing_loss, testing_edit_distance))
+        print('Note that, to save time, only {:.1f}% of the samples were evaluated'.format(fraction * 100.0))
 
 
 def visualize_data_from_loader(training_generator_in, validation_generator_in):
@@ -228,18 +225,15 @@ if __name__ == "__main__":
     continue_training = False
     model_path_to_train = "./trained_models/checkpoint.pt"
     model_path_to_evaluate = "./trained_models/checkpoint.pt"  # checkpoint.pt  CNN-BLSTMx2 = 0.1176 PER
-    endEarlyForProfiling = False
-    maxNumBatches = 101
+    endEarlyForProfiling = True
+    maxNumBatches = 21
     runOnCPUOnly = False
-    if endEarlyForProfiling:
-        max_epochs_training = 1
-    else:
-        max_epochs_training = 500
+    max_epochs_training = 500
 
     mini_batch_size = 400
     print_frequency = 20
     patience = 3
-    learning_rate = 1e-3 # 1e-3 looks good, 1e-2 is too high
+    learning_rate = 1e-3  # 1e-3 looks good, 1e-2 is too high
 
     # Datasets test
     dataset_hdf5_path = "../data/GoogleSpeechCommands/hdf5_format/"
@@ -265,7 +259,8 @@ if __name__ == "__main__":
 
     model_to_train = Net()  # ConvNet()
     partition = load_data_set_indexes(dataset_hdf5_path)
-    training_dataloader, validation_dataloader, testing_dataloader = create_dataloaders(hdf5file_path, partition, params)
+    training_dataloader, validation_dataloader, testing_dataloader = \
+        create_dataloaders(hdf5file_path, partition, params)
 
     logger = TensorboardLogger()
     visdom_logger = VisdomLogger("Loss", 20)
@@ -279,14 +274,18 @@ if __name__ == "__main__":
     if continue_training:
         model_to_train.load_state_dict(torch.load(model_path_to_train))
 
+    # initialize the early_stopping object
+    early_stopper = EarlyStopping(end_early=endEarlyForProfiling, max_num_batches=maxNumBatches, verbose=True,
+                                  patience=patience, checkpoint_path=model_path_to_evaluate)
+
     print("--------Calling train_model()")
     train_model(model_to_train, training_dataloader, validation_dataloader, max_epochs_training, mini_batch_size,
-                optimizer_adam, criterion_ctc, use_cuda)
+                optimizer_adam, criterion_ctc, use_cuda, early_stopper)
     if not endEarlyForProfiling:
         model_to_evaluate = model_to_train
         model_to_evaluate.load_state_dict(torch.load(model_path_to_evaluate))
         evaluate_on_testing_set(model_to_evaluate, testing_dataloader, criterion_ctc)
     if use_cuda:
-        print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None)/1e9, 'GB')
+        print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None) / 1e9, 'GB')
         print('Maximum GPU memory managed by the caching allocator: ',
-              torch.cuda.max_memory_cached(device=None)/1e9, 'GB')
+              torch.cuda.max_memory_cached(device=None) / 1e9, 'GB')

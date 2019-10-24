@@ -2,52 +2,78 @@
 """
 Created on Tue Sep 24 21:25:56 2019
 
-@author: Brolof
 """
 
-import numpy as np
+import numpy
 import torch
 
+
 class EarlyStopping:
-    """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, patience=7, verbose=False, delta=0):
-        """
-        Args:
-            patience (int): How long to wait after last time validation loss improved.
-                            Default: 7
-            verbose (bool): If True, prints a message for each validation loss improvement. 
-                            Default: False
-            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-                            Default: 0
-        """
-        self.patience = patience
+    """
+    Class used to determine when to end training or when to exit program
+    """
+
+    def __init__(self, end_early, max_num_batches, verbose=False, patience=3,
+                 checkpoint_path='./trained_models/checkpoint.pt'):
         self.verbose = verbose
-        self.counter = 0
-        self.best_score = None
-        self.early_stop = False
-        self.val_loss_min = np.Inf
-        self.delta = delta
 
-    def __call__(self, val_loss, model):
+        self.end_early = end_early
+        self.max_num_batches = max_num_batches
+        self.end_early_counter = 0
+        self.stop_program = False
 
-        score = -val_loss
+        self.stop_training_early = False
+        self.patience = patience
+        self.lowest_loss = None
+        self.lowest_loss_prev = numpy.inf
+        self.validation_counter = 0
+        self.checkpoint_path = checkpoint_path
 
-        if self.best_score is None:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model)
-        elif score < self.best_score - self.delta:
-            self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model)
-            self.counter = 0
+    def __call__(self, loss, model):
+        """
+        This is called at each validation step to determine if the model has stopped learning on validation data.
+        :param loss: The validation loss. Lower = better
+        :param model: The model that should be saved.
+        :return:
+        """
+        if self.lowest_loss is None:  # First time
+            self.lowest_loss = loss
+            self.save_model(model)
 
-    def save_checkpoint(self, val_loss, model):
-        '''Saves model when validation loss decrease.'''
+        elif self.lowest_loss > loss:  # loss is lower than previous best
+            self.save_model(model)
+            self.lowest_loss = loss
+            self.validation_counter = 0
+
+        else:  # loss is not low enough
+            self.validation_counter += 1
+            if self.verbose:
+                print("Validation loss didn't improve. Best: {:.3f}, Current: {:.3f}. Exiting early: ({}/{})"
+                      .format(self.lowest_loss, loss, self.validation_counter, self.patience))
+            if self.validation_counter >= self.patience:
+                self.stop_training_early = True
+
+    def save_model(self, model):
+        """
+        Saves model to the specified path
+        :param model: The model that should be saved.
+        :return:
+        """
+        torch.save(model.state_dict(), self.checkpoint_path)
         if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
-        torch.save(model.state_dict(), './trained_models/checkpoint.pt')
-        self.val_loss_min = val_loss
+            print("Validation loss decreased from {:.5f} -> {:.5f}. Saving model at path: '{path}'"
+                  .format(self.lowest_loss_prev, self.lowest_loss, path=self.checkpoint_path))
+        self.lowest_loss_prev = self.lowest_loss
+
+    def exit_program_early(self):
+        """
+        Used to determine when to exit the program early.
+        This can be used for example to run a profiling faster, or to partially train a model.
+        :return:
+        """
+        if self.end_early:
+            self.end_early_counter += 1
+            if self.end_early_counter >= self.max_num_batches:
+                if self.verbose:
+                    print(" Exiting program early! ")
+                self.stop_program = True

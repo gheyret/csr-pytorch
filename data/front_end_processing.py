@@ -2,7 +2,7 @@
 """
 Created on Sat Sep 21 15:22:52 2019
 
-@author: Brolof
+Most functions here gathered from: jameslyons/python_speech_features
 """
 
 #import os
@@ -33,10 +33,12 @@ def log_specgram(audio, sample_rate, window_size=20,
                                     )
     return freqs, numpy.log(spec.T.astype(numpy.float32) + eps)
 
+
 def createSpectrogram(file_path, window_size, step_size, nfft):
     samplerate, test_sound  = wavfile.read(file_path)
     _, spectrogram = log_specgram(test_sound, samplerate, window_size = window_size, step_size = step_size,  nfft = nfft)
     return spectrogram
+
 
 def fbank(signal,samplerate=16000,winlen=0.025,winstep=0.01,
           nfilt=26,nfft=512,lowfreq=0,highfreq=None,preemph=0.97,
@@ -88,6 +90,7 @@ def logfbank(signal,samplerate=16000,winlen=0.025,winstep=0.01,
     feat,energy = fbank(signal,samplerate,winlen,winstep,nfilt,nfft,lowfreq,highfreq,preemph,winfunc)
     return numpy.log(feat)
 
+
 def hz2mel(hz):
     """Convert a value in Hertz to Mels
     :param hz: a value in Hz. This can also be a numpy array, conversion proceeds element-wise.
@@ -133,9 +136,11 @@ def get_filterbanks(nfilt=20,nfft=512,samplerate=16000,lowfreq=0,highfreq=None):
             fbank[j,i] = (bin[j+2]-i) / (bin[j+2]-bin[j+1])
     return fbank
 
+
 def normalizeSpectrogram(spectrogram):
     spectrogram = spectrogram - numpy.mean(spectrogram)
     return spectrogram
+
 
 def padSpectrogram(spectrogram, expectedRows, expectedCols):
         rows = spectrogram.shape[0]
