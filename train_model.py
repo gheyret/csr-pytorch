@@ -58,8 +58,8 @@ def print_metrics(current_epoch, current_batch, total_batches, loss, edit_distan
                   batch_size * print_frequency / (time.time() - start_time)))
 
 
-def train_model(model_input, training_generator, validation_generator, max_epochs,
-                batch_size, optimizer, criterion, using_cuda, early_stopping):
+def train_model(model_input, training_generator, validation_generator, max_epochs, batch_size, optimizer, criterion,
+                using_cuda, early_stopping):
     """
 
     :param early_stopping:
@@ -110,12 +110,11 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
             optimizer.step()
 
             if (i + 1) % print_frequency == 0:
-                evaluated_label = decode_sample(outputs, 0)
+                evaluated_label, _ = decode_sample(outputs, 0)
                 true_label = local_targets[0, :local_target_lengths[0]]
-                edit_distance = compute_edit_distance(outputs, local_targets, local_target_lengths, 0)
+                edit_distance, _ = compute_edit_distance(outputs, local_targets, local_target_lengths, 3)
                 print('Evaluated: ', evaluated_label)
                 print('True:      ', true_label)
-
                 logger.update_scalar('continuous/loss', batch_loss)
                 visdom_logger.update(batch_loss, edit_distance)
 
@@ -199,7 +198,7 @@ def evaluate_on_testing_set(model_in, testing_generator_in, criterion):
             batch_size = local_targets.size(0)
             total += batch_size
             batch_size = math.floor(batch_size * fraction)
-            edit_distance = compute_edit_distance(outputs, local_targets, local_target_lengths, batch_size)
+            edit_distance, score = compute_edit_distance(outputs, local_targets, local_target_lengths, batch_size)
             testing_edit_distances.append(edit_distance)
 
             testing_loss = numpy.average(testing_losses)
@@ -225,14 +224,14 @@ if __name__ == "__main__":
     continue_training = False
     model_path_to_train = "./trained_models/checkpoint.pt"
     model_path_to_evaluate = "./trained_models/checkpoint.pt"  # checkpoint.pt  CNN-BLSTMx2 = 0.1176 PER
-    endEarlyForProfiling = True
+    endEarlyForProfiling = False
     maxNumBatches = 21
     runOnCPUOnly = False
     max_epochs_training = 500
 
     mini_batch_size = 400
     print_frequency = 20
-    patience = 3
+    patience = 5
     learning_rate = 1e-3  # 1e-3 looks good, 1e-2 is too high
 
     # Datasets test
@@ -265,7 +264,7 @@ if __name__ == "__main__":
     logger = TensorboardLogger()
     visdom_logger = VisdomLogger("Loss", 20)
 
-    criterion_ctc = nn.CTCLoss(zero_infinity=True)
+    criterion_ctc = nn.CTCLoss(zero_infinity=True, reduction='mean')
     optimizer_adam = torch.optim.Adam(model_to_train.parameters(), lr=learning_rate)
     if use_cuda:
         model_to_train.cuda()

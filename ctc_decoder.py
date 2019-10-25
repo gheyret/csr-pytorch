@@ -34,8 +34,7 @@ def logsumexp(*args):
     if all(a == NEG_INF for a in args):
         return NEG_INF
     a_max = max(args)
-    lsp = math.log(sum(math.exp(a - a_max)
-                       for a in args))
+    lsp = math.log(sum(math.exp(a - a_max) for a in args))
     return a_max + lsp
 
 
@@ -43,26 +42,29 @@ def decode_sample(input_batch, sample_id):
     input_batch = input_batch.cpu()
     probability_matrix = input_batch[:, sample_id, :].detach().numpy()
     labels, score = beam_ctc_decode(probability_matrix)
-    return labels
+    return labels, score
 
 
 def compute_edit_distance(output_batch, targets, target_lengths, num_samples=0):
     if num_samples > 0:
         total_edit_distance = 0
+        total_score = 0
         for i in range(0, num_samples):
-            label = decode_sample(output_batch, i)
+            label, score = decode_sample(output_batch, i)
             s1 = [chr(x) for x in label]
             s2 = [chr(x) for x in targets[i, :target_lengths[i]]]
             distance = Levenshtein.distance(''.join(s1), ''.join(s2))
             edit_distance = distance/len(s2)
             total_edit_distance += edit_distance
+            total_score += score
         avg_edit_distance = total_edit_distance/num_samples
-        return avg_edit_distance
+        avg_total_score = total_score/num_samples
+        return avg_edit_distance, avg_total_score
     else:
-        return 0.0
+        return 0.0, 0.0
 
 
-def beam_ctc_decode(probs, beam_size=10, blank=0):
+def beam_ctc_decode(probs, beam_size=5, blank=0):
     """
     Source: gaoyiyeah/speech-ctc/speech/models/ctc_decoder.py
 

@@ -2,7 +2,7 @@
 """
 Created on Tue Sep 24 23:30:57 2019
 
-@author: Brolof
+
 """
 
 import torch

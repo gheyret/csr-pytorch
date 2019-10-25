@@ -146,6 +146,14 @@ class ConvNet2(nn.Module):
             nn.Conv2d(128, 256, kernel_size=[3, 3], stride=(2, 1), padding=[0, 1]),  # 256
             nn.BatchNorm2d(256),
             nn.Hardtanh(0, 20, inplace=True))
+        self.layer3p = nn.Sequential(
+            nn.Conv2d(256, 256, kernel_size=[3, 3], stride=(1, 1), padding=[1, 1]),  # 256
+            nn.BatchNorm2d(256),
+            nn.Hardtanh(0, 20, inplace=True))
+        self.layer3p2 = nn.Sequential(
+            nn.Conv2d(256, 256, kernel_size=[3, 3], stride=(1, 1), padding=[1, 1]),  # 256
+            nn.BatchNorm2d(256),
+            nn.Hardtanh(0, 20, inplace=True))
         self.layer4 = nn.Sequential(
             nn.Conv2d(256, 512, kernel_size=[3, 3], stride=(2, 1), padding=[0, 1]),  # 512
             nn.BatchNorm2d(512),
@@ -155,8 +163,6 @@ class ConvNet2(nn.Module):
             nn.LSTM(input_size=1536, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
         self.batchNorm = SequenceWise(nn.BatchNorm1d(512))
         self.rnn2 = nn.Sequential(
-            nn.LSTM(input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
-        self.rnn3 = nn.Sequential(
             nn.LSTM(input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
 
         self.fc = nn.Sequential(
@@ -169,6 +175,8 @@ class ConvNet2(nn.Module):
         out = self.layer1(x)
         out = self.layer2(out)
         out = self.layer3(out)
+        out = self.layer3p(out)
+        out = self.layer3p2(out)
         out = self.layer4(out)
 
         N, FM, F, T_out = out.size() # N = Batch size, FM = Feature maps, f = frequencies, t = time
@@ -186,13 +194,6 @@ class ConvNet2(nn.Module):
 
         out = nn.utils.rnn.pack_padded_sequence(out, output_lengths, batch_first=False)
         out, h = self.rnn2(out)
-        out, _ = nn.utils.rnn.pad_packed_sequence(out)
-        out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
-
-        out = self.batchNorm(out)
-
-        out = nn.utils.rnn.pack_padded_sequence(out, output_lengths, batch_first=False)
-        out, h = self.rnn3(out)
         out, _ = nn.utils.rnn.pad_packed_sequence(out)
         out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
 
