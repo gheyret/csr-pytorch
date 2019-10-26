@@ -17,12 +17,6 @@ def csv_to_list(path_to_csv):
         return output_list
 
 
-def load_data_set_path(dataset_path):
-    # VERBOSE = False
-    partition, labels, label_index_id_table = import_data(dataset_path, 35)  # IDs
-    return partition, labels
-
-
 def load_data_set_indexes(dataset_path_in):
     partition_out = {'train': csv_to_list(dataset_path_in + "train_idx.csv"),
                      'validation': csv_to_list(dataset_path_in + "validation_idx.csv"),

@@ -143,11 +143,12 @@ class Dataset(data.Dataset, GoogleSpeechEncoder):
 def collate_fn_pad(batch):
     '''
     Pads batch of variable length
-    Deep speech
     '''
+
     ## get sequence lengths
     def funcTensor(p):
         return p[0].size(2)
+
     def funcTarget(p):
         return len(p[1])
 
