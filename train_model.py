@@ -40,13 +40,13 @@ def print_cuda_information(using_cuda):
 
 def create_dataloaders(hdf5file_path_in, partition_in, params_in):
     # Generators
-    training_set = Dataset(hdf5file_path_in, partition_in['train'])
+    training_set = Dataset(list_IDs=partition_in['train'], hdf5file_path=hdf5file_path_in)
     training_generator_out = AudioDataLoader(training_set, **params_in)
 
-    validation_set = Dataset(hdf5file_path_in, partition_in['validation'])
+    validation_set = Dataset(list_IDs=partition_in['validation'], hdf5file_path=hdf5file_path_in)
     validation_generator_out = AudioDataLoader(validation_set, **params_in)
 
-    testing_set = Dataset(hdf5file_path_in, partition_in['test'])
+    testing_set = Dataset(list_IDs=partition_in['test'], hdf5file_path=hdf5file_path_in)
     testing_generator_out = AudioDataLoader(testing_set, **params_in)
     return training_generator_out, validation_generator_out, testing_generator_out
 
@@ -258,8 +258,19 @@ if __name__ == "__main__":
 
     model_to_train = Net()  # ConvNet()
     partition = load_data_set_indexes(dataset_hdf5_path)
-    training_dataloader, validation_dataloader, testing_dataloader = \
-        create_dataloaders(hdf5file_path, partition, params)
+
+    # DATALOADERS:
+    training_set = Dataset(list_IDs=partition['train'], hdf5file_path=hdf5file_path)
+    training_generator = AudioDataLoader(training_set, **params)
+
+    validation_set = Dataset(list_IDs=partition['validation'], hdf5file_path=hdf5file_path)
+    validation_generator = AudioDataLoader(validation_set, **params)
+
+    testing_set = Dataset(list_IDs=partition['test'], hdf5file_path=hdf5file_path)
+    testing_generator = AudioDataLoader(testing_set, **params)
+
+    #training_dataloader, validation_dataloader, testing_dataloader = \
+    #    create_dataloaders(hdf5file_path, partition, params)
 
     logger = TensorboardLogger()
     visdom_logger = VisdomLogger("Loss", 20)

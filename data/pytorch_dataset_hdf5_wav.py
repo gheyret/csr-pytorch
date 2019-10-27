@@ -10,7 +10,7 @@ from torchvision.transforms import transforms
 from data.front_end_processing import logfbank
 from torch.utils.data import DataLoader
 import csv
-
+from scipy.io import wavfile
 import numpy
 import time
 import matplotlib.pyplot as plt
@@ -83,10 +83,26 @@ class GoogleSpeechEncoder:
 
 class Dataset(data.Dataset, GoogleSpeechEncoder):
 
-    def __init__(self, hdf5file_path, list_IDs):
+    def __init__(self, list_IDs, hdf5file_path=None, wavfolder_path=None, label_dict=None, isGSC=True):
+        '''
+
+        :param hdf5file_path: relative path to the hdf5 file containing all data.
+        :param list_IDs:
+                        If hdf5 is used: expects list_IDs to be a list of indexes that this data loader should be using
+                                         to fetch data from the hdf5 file. e.g. dataset['ds/data'][3, :] where ID = 3
+                        If hdf5 not used: Expects list_IDs to be a list of file names for the individual wav files.
+        :param wavfolder_path: The relative path to the folder where the raw wav files can be found.
+        :param label_dict: A dictionary where the keys are the file names and the lists are the labels in ints. e.g.
+                            label_dict["file_name_1.WAV"] = [3, 27, 33]
+        :param isGSC:   The GSC recorded voice data labels are stored as ints 0-34 for each class. This needs to be
+                        converted to the corresponding word, and then converted to a list of ints for the phoneme repr.
+        '''
         'Initialization'
         self.list_IDs = list_IDs
+        self.label_dict = label_dict
         self.hdf5file_path = hdf5file_path
+        self.wavfolder_path = wavfolder_path
+        self.isGSC = isGSC
         self.transformData = transforms.Compose(
             [transforms.ToTensor(),
              transforms.Normalize(mean=[0.0],
@@ -99,20 +115,27 @@ class Dataset(data.Dataset, GoogleSpeechEncoder):
         self.expectedRows = self.nfilt
         self.expectedCols = 99
         self.samplerate = 16000
-        GoogleSpeechEncoder.__init__(self)
+        if isGSC:
+            GoogleSpeechEncoder.__init__(self)
 
     def __len__(self):
         'Denotes the total number of samples'
         return len(self.list_IDs)
 
     def __getitem__(self, index):
-        if self.dataset is None:
-            self.dataset = h5py.File(self.hdf5file_path, "r", swmr=True) # SWMR = Single write multiple read
-        #index = numpy.random.randint(1,10)
+        if self.dataset is None & self.hdf5file_path is not None:
+            self.dataset = h5py.File(self.hdf5file_path, "r", swmr=True)  # SWMR = Single write multiple read
+
         ID = self.list_IDs[index]
-        y = self.dataset['ds/label'][ID]
-        y = self.encode_labels(y)
-        test_sound = self.dataset['ds/data'][ID, :]
+        if self.hdf5file_path is not None:  # Reading from hdf5 file
+            y = self.dataset['ds/label'][ID]
+            if self.isGSC:
+                y = self.encode_labels(y)
+            test_sound = self.dataset['ds/data'][ID, :]
+        else:  # ID contains the path to the wav file
+            samplerate, test_sound = wavfile.read(ID)
+            y = self.label_dict[ID]
+
         test_sound = numpy.trim_zeros(test_sound, 'b')
         spec = logfbank(test_sound, self.samplerate,
                         winlen=self.window_size,
