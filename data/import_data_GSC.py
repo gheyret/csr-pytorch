@@ -10,7 +10,7 @@ import csv
 
 
 def csv_to_list(path_to_csv):
-    with open(path_to_csv, newline='') as csvfile:
+    with open(path_to_csv) as csvfile: # , newline='' in Windows
         output_list = list(csv.reader(csvfile))
         output_list = numpy.asarray(output_list)[0]
         output_list = list(map(int, output_list))
@@ -25,7 +25,7 @@ def load_data_set_indexes(dataset_path_in):
     return partition_out
 
 
-def import_data(dataset_path, n_words=35, verbose=False):
+def import_data(dataset_path, n_words=35, verbose=False, return_index=False):
     # Read the testing file and extract all IDs
     test_id = []
     f = open(dataset_path + "testing_list.txt", "r")
@@ -95,5 +95,23 @@ def import_data(dataset_path, n_words=35, verbose=False):
     if verbose: print("Sorted into categories:")
     for k, v in partition.items():
         if verbose: print(k, len(v))
+
+
+    if return_index:
+        train_idx = []
+        validation_idx = []
+        test_idx = []
+        n_samples = len(data_ID)
+        for i, ID in enumerate(data_ID):
+            if (i) % (n_samples/20) == 0:
+                print("{0:.3f}% completed".format(i/n_samples*100.0))
+            if ID in train_ID:
+                train_idx.append(i)
+            elif ID in validation_ID:
+                validation_idx.append(i)
+            elif ID in test_id:
+                test_idx.append(i)
+        partition_idx = {"train":train_idx, "validation":validation_idx, "test":test_idx}
+        return partition_idx, labels, label_index_ID_table
 
     return partition, labels, label_index_ID_table

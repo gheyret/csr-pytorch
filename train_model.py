@@ -112,7 +112,7 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
             if (i + 1) % print_frequency == 0:
                 evaluated_label, _ = decode_sample(outputs, 0)
                 true_label = local_targets[0, :local_target_lengths[0]]
-                edit_distance, _ = compute_edit_distance(outputs, local_targets, local_target_lengths, 3)
+                edit_distance, _ = compute_edit_distance(outputs, local_targets, local_target_lengths, 0)
                 print('Evaluated: ', evaluated_label)
                 print('True:      ', true_label)
                 logger.update_scalar('continuous/loss', batch_loss)
@@ -260,17 +260,17 @@ if __name__ == "__main__":
     partition = load_data_set_indexes(dataset_hdf5_path)
 
     # DATALOADERS:
-    training_set = Dataset(list_IDs=partition['train'], hdf5file_path=hdf5file_path)
-    training_generator = AudioDataLoader(training_set, **params)
+    # training_set = Dataset(list_IDs=partition['train'], hdf5file_path=hdf5file_path)
+    # training_generator = AudioDataLoader(training_set, **params)
+    #
+    # validation_set = Dataset(list_IDs=partition['validation'], hdf5file_path=hdf5file_path)
+    # validation_generator = AudioDataLoader(validation_set, **params)
+    #
+    # testing_set = Dataset(list_IDs=partition['test'], hdf5file_path=hdf5file_path)
+    # testing_generator = AudioDataLoader(testing_set, **params)
 
-    validation_set = Dataset(list_IDs=partition['validation'], hdf5file_path=hdf5file_path)
-    validation_generator = AudioDataLoader(validation_set, **params)
-
-    testing_set = Dataset(list_IDs=partition['test'], hdf5file_path=hdf5file_path)
-    testing_generator = AudioDataLoader(testing_set, **params)
-
-    #training_dataloader, validation_dataloader, testing_dataloader = \
-    #    create_dataloaders(hdf5file_path, partition, params)
+    training_dataloader, validation_dataloader, testing_dataloader = \
+        create_dataloaders(hdf5file_path, partition, params)
 
     logger = TensorboardLogger()
     visdom_logger = VisdomLogger("Loss", 20)

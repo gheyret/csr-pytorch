@@ -123,7 +123,7 @@ class Dataset(data.Dataset, GoogleSpeechEncoder):
         return len(self.list_IDs)
 
     def __getitem__(self, index):
-        if self.dataset is None & self.hdf5file_path is not None:
+        if (self.dataset is None) & (self.hdf5file_path is not None):
             self.dataset = h5py.File(self.hdf5file_path, "r", swmr=True)  # SWMR = Single write multiple read
 
         ID = self.list_IDs[index]

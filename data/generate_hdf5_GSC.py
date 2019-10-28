@@ -13,10 +13,19 @@ import csv
 from data.import_data_GSC import import_data
 from scipy.io import wavfile
 import numpy
+from os.path import dirname
 
-dataset_path = "../data/GoogleSpeechCommands/wav_format/"
-hdf5_dir = "../data/GoogleSpeechCommands/hdf5_format/"
 
+dataset_path_relative = "/data/GoogleSpeechCommands/wav_format/"
+hdf5_path_relative = "/data/GoogleSpeechCommands/hdf5_format/"
+
+parent_dir = dirname(os.getcwd())
+dataset_path = parent_dir + dataset_path_relative
+hdf5_dir = parent_dir + hdf5_path_relative
+if not os.path.exists(dataset_path):
+    grandparent_dir = dirname(dirname(os.getcwd()))
+    dataset_path = grandparent_dir + dataset_path_relative
+    hdf5_dir = grandparent_dir + hdf5_path_relative
 
 # Generate a list of all subfolders
 subFolderList = []
@@ -52,7 +61,7 @@ if not os.path.exists(hdf5_dir + output_file_name):
         dsetData = file.create_dataset('ds/data', (n_samples, 16000))
         dsetLabel = file.create_dataset('ds/label', (n_samples,), dtype = 'i8')
         for i, ID in enumerate(data_ID[0:n_samples], 0):
-            samplerate, test_sound = wavfile.read('../data/' + ID + ".wav")
+            samplerate, test_sound = wavfile.read(dataset_path + ID + ".wav")
             z = numpy.zeros((1, 16000))
             z[0, :test_sound.shape[0]]=test_sound
             file_name = ID.replace('.wav', '')
@@ -68,32 +77,32 @@ if not os.path.exists(hdf5_dir + output_file_name):
 
 # Generate some csv files:
 if not os.path.exists(hdf5_dir + "index_label_ID_table"):
-    with open(hdf5_dir + "index_label_ID_table" + ".csv", "w") as outfile:
+    with open(hdf5_dir + "index_label_ID_table" + ".csv", "w", newline='') as outfile:
         writer = csv.writer(outfile)
         for key, val in index_label_ID_table.items():
             writer.writerow([key, val])
 
 if not os.path.exists(hdf5_dir + "label_index_ID_table"):
-    with open(hdf5_dir + "label_index_ID_table" + ".csv", "w") as outfile:
+    with open(hdf5_dir + "label_index_ID_table" + ".csv", "w", newline='') as outfile:
         writer = csv.writer(outfile)
         for key, val in label_index_ID_table.items():
             writer.writerow([key, val])
 
-partition, labels, _ = import_data(dataset_path)  # IDs
+partition, labels, _ = import_data(dataset_path, return_index=True)  # IDs
 train_idx = partition['train']
 validation_idx = partition['validation']
 test_idx = partition['test']
 if not os.path.exists(hdf5_dir + "train_idx"):
-    with open(hdf5_dir + "train_idx" + ".csv", "w") as outfile:
+    with open(hdf5_dir + "train_idx" + ".csv", "w", newline='') as outfile:
         writer = csv.writer(outfile)
         writer.writerow(train_idx)
 
 if not os.path.exists(hdf5_dir + "validation_idx"):
-    with open(hdf5_dir + "validation_idx" + ".csv", "w") as outfile:
+    with open(hdf5_dir + "validation_idx" + ".csv", "w", newline='') as outfile:
         writer = csv.writer(outfile)
         writer.writerow(validation_idx)
 
 if not os.path.exists(hdf5_dir + "test_idx"):
-    with open(hdf5_dir + "test_idx" + ".csv", "w") as outfile:
+    with open(hdf5_dir + "test_idx" + ".csv", "w", newline='') as outfile:
         writer = csv.writer(outfile)
         writer.writerow(test_idx)
