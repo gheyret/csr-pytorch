@@ -14,8 +14,10 @@ from data.pytorch_dataset_hdf5_wav import Dataset, AudioDataLoader
 from cnn_model import ConvNet2 as Net
 from data.import_data_GSC import load_data_set_indexes
 from early_stopping import EarlyStopping
-from ctc_decoder import decode_sample, compute_edit_distance
+from ctc_decoder import decode_sample, compute_edit_distance, BeamSearchDecoder
 from analytics.logger import TensorboardLogger, VisdomLogger
+import ctcdecode
+
 
 
 # noinspection PyUnresolvedReferences
@@ -52,14 +54,14 @@ def create_dataloaders(hdf5file_path_in, partition_in, params_in):
 
 
 def print_metrics(current_epoch, current_batch, total_batches, loss, edit_distance, start_time, max_epochs, batch_size):
-    print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Edit Distance: {:.2f}, Time: {:.2f}s, Sample/s: {:.2f}'
+    print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Edit Distance: {:.4f}, Time: {:.2f}s, Sample/s: {:.2f}'
           .format(current_epoch + 1, max_epochs, current_batch + 1, total_batches, loss.item(),
                   edit_distance, (time.time() - start_time),
                   batch_size * print_frequency / (time.time() - start_time)))
 
 
 def train_model(model_input, training_generator, validation_generator, max_epochs, batch_size, optimizer, criterion,
-                using_cuda, early_stopping):
+                using_cuda, early_stopping, decoder):
     """
 
     :param early_stopping:
@@ -110,9 +112,13 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
             optimizer.step()
 
             if (i + 1) % print_frequency == 0:
-                evaluated_label, _ = decode_sample(outputs, 0)
+
+                decoded_sequence, _, _, out_seq_len = decoder.beam_search_batch(outputs, output_lengths)
+                edit_distance = decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
+                                                    len(local_target_lengths))
+                evaluated_label = decoded_sequence[0][0][0:out_seq_len[0][0]]
                 true_label = local_targets[0, :local_target_lengths[0]]
-                edit_distance, _ = compute_edit_distance(outputs, local_targets, local_target_lengths, 0)
+                #edit_distance, _ = compute_edit_distance(outputs, local_targets, local_target_lengths, 0)
                 print('Evaluated: ', evaluated_label)
                 print('True:      ', true_label)
                 logger.update_scalar('continuous/loss', batch_loss)
@@ -133,6 +139,7 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
         with torch.set_grad_enabled(False):
             model.eval()
             batch_time = time.time()
+            valid_edit_distances = []
             for (local_data) in validation_generator:
                 local_batch, local_targets, local_input_percentages, local_target_lengths = local_data
                 input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
@@ -145,16 +152,22 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
                 loss = criterion(outputs, local_targets, output_lengths, local_target_lengths)  # CTC loss function
                 valid_losses.append(loss.item())
 
+                decoded_sequence, _, _, out_seq_len = decoder.beam_search_batch(outputs, output_lengths)
+                edit_distance = decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
+                                                    len(local_target_lengths))
+                valid_edit_distances.append(edit_distance)
+
             # calculate average loss over an epoch
             valid_loss = numpy.average(valid_losses)
+            valid_edit_distance = numpy.average(valid_edit_distances)
             train_losses = []
             valid_losses = []
 
         print('---------------------------------------------------------------------------------------------')
         early_stopping(valid_loss, model)
-        edit_distance = 0.0
+        #edit_distance = 0.0
         print_metrics(current_epoch=epoch, current_batch=n_validation_batches - 1, total_batches=n_validation_batches,
-                      loss=valid_loss, edit_distance=edit_distance, start_time=batch_time, max_epochs=max_epochs,
+                      loss=valid_loss, edit_distance=valid_edit_distance, start_time=batch_time, max_epochs=max_epochs,
                       batch_size=batch_size)
         print('#############################################################################################')
         if early_stopping.stop_training_early:
@@ -166,14 +179,13 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
     print("Total training time: ", (time.time() - total_time), " s")
 
 
-def evaluate_on_testing_set(model_in, testing_generator_in, criterion):
+def evaluate_on_testing_set(model_in, testing_generator_in, criterion, decoder):
     import math
     # Testing
     testing_losses = []
     testing_edit_distances = []
     n_testing_batches = len(testing_generator_in)
     with torch.set_grad_enabled(False):
-        fraction = 0.25
         total = 0
         i = 0
         model_in.eval()
@@ -197,15 +209,17 @@ def evaluate_on_testing_set(model_in, testing_generator_in, criterion):
             # Track the accuracy
             batch_size = local_targets.size(0)
             total += batch_size
-            batch_size = math.floor(batch_size * fraction)
-            edit_distance, score = compute_edit_distance(outputs, local_targets, local_target_lengths, batch_size)
+
+            decoded_sequence, _, _, out_seq_len = decoder.beam_search_batch(outputs, output_lengths)
+            edit_distance = decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
+                                                len(local_target_lengths))
+            #edit_distance, score = compute_edit_distance(outputs, local_targets, local_target_lengths, batch_size)
             testing_edit_distances.append(edit_distance)
 
             testing_loss = numpy.average(testing_losses)
             testing_edit_distance = numpy.average(testing_edit_distances)
             print('Testing Accuracy of the model on the ', total,
                   ' testing images. Loss: {:.3f}, PER: {:.4f}'.format(testing_loss, testing_edit_distance))
-        print('Note that, to save time, only {:.1f}% of the samples were evaluated'.format(fraction * 100.0))
 
 
 def visualize_data_from_loader(training_generator_in, validation_generator_in):
@@ -229,13 +243,14 @@ if __name__ == "__main__":
     runOnCPUOnly = False
     max_epochs_training = 500
 
-    mini_batch_size = 400
+    mini_batch_size = 800
     print_frequency = 20
     patience = 5
     learning_rate = 1e-3  # 1e-3 looks good, 1e-2 is too high
 
     # Datasets test
-    dataset_hdf5_path = "../data/GoogleSpeechCommands/hdf5_format/"
+
+    dataset_hdf5_path = "/media/olof/SSD 1TB/data/GoogleSpeechCommands/hdf5_format/"  # "../data/GoogleSpeechCommands/hdf5_format/"
     hdf5file_path = dataset_hdf5_path + "allWavIdx.hdf5"
 
     # CUDA for PyTorch
@@ -246,7 +261,7 @@ if __name__ == "__main__":
         numberOfWorkers = 0
         pin_memory = False
     else:
-        numberOfWorkers = 4
+        numberOfWorkers = 5
         pin_memory = True
 
     params = {'batch_size': mini_batch_size,
@@ -275,6 +290,8 @@ if __name__ == "__main__":
     logger = TensorboardLogger()
     visdom_logger = VisdomLogger("Loss", 20)
 
+    beam_decoder = BeamSearchDecoder()
+
     criterion_ctc = nn.CTCLoss(zero_infinity=True, reduction='mean')
     optimizer_adam = torch.optim.Adam(model_to_train.parameters(), lr=learning_rate)
     if use_cuda:
@@ -290,11 +307,11 @@ if __name__ == "__main__":
 
     print("--------Calling train_model()")
     train_model(model_to_train, training_dataloader, validation_dataloader, max_epochs_training, mini_batch_size,
-                optimizer_adam, criterion_ctc, use_cuda, early_stopper)
+                optimizer_adam, criterion_ctc, use_cuda, early_stopper, beam_decoder)
     if not endEarlyForProfiling:
         model_to_evaluate = model_to_train
         model_to_evaluate.load_state_dict(torch.load(model_path_to_evaluate))
-        evaluate_on_testing_set(model_to_evaluate, testing_dataloader, criterion_ctc)
+        evaluate_on_testing_set(model_to_evaluate, testing_dataloader, criterion_ctc, beam_decoder)
     if use_cuda:
         print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None) / 1e9, 'GB')
         print('Maximum GPU memory managed by the caching allocator: ',

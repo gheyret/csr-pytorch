@@ -6,9 +6,14 @@ import numpy
 from ctc_decoder import beam_ctc_decode
 import timeit
 
+
+
+
+
 def make_new_beam():
     fn = lambda : (0, 0)
     return collections.defaultdict(fn)
+
 
 def beam_search(prob_matrix, blank=0, beam_size = 10):
     T, S = prob_matrix.shape
