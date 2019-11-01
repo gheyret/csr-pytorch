@@ -13,9 +13,10 @@ class EarlyStopping:
     Class used to determine when to end training or when to exit program
     """
 
-    def __init__(self, end_early, max_num_batches, verbose=False, patience=3,
+    def __init__(self, end_early, max_num_batches, delta=0.0, verbose=False, patience=3,
                  checkpoint_path='./trained_models/checkpoint.pt'):
         self.verbose = verbose
+        self.delta = delta
 
         self.end_early = end_early
         self.max_num_batches = max_num_batches
@@ -40,16 +41,16 @@ class EarlyStopping:
             self.lowest_loss = loss
             self.save_model(model)
 
-        elif self.lowest_loss > loss:  # loss is lower than previous best
-            self.save_model(model)
+        elif self.lowest_loss - self.delta > loss:  # loss is lower than previous best
             self.lowest_loss = loss
+            self.save_model(model)
             self.validation_counter = 0
 
         else:  # loss is not low enough
             self.validation_counter += 1
             if self.verbose:
-                print("Validation loss didn't improve. Best: {:.3f}, Current: {:.3f}. Exiting early: ({}/{})"
-                      .format(self.lowest_loss, loss, self.validation_counter, self.patience))
+                print("Validation loss didn't improve. Best: {:.3f}, Current: {:.3f} (Delta: {:.4f}). Exiting early: ({}/{})"
+                      .format(self.lowest_loss, loss, self.delta, self.validation_counter, self.patience))
             if self.validation_counter >= self.patience:
                 self.stop_training_early = True
 

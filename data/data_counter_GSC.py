@@ -12,6 +12,8 @@ if not os.path.exists(dataset_path):
     grandparent_dir = dirname(dirname(os.getcwd()))
     dataset_path = grandparent_dir + dataset_path_relative
 
+dataset_path = "D:\data\GoogleSpeechCommands\wav_format/"
+
 partition, labels, label_index_ID_table = import_data(dataset_path)
 
 training_dict = dict()

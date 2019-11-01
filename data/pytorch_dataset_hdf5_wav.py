@@ -10,7 +10,8 @@ from torchvision.transforms import transforms
 from data.front_end_processing import logfbank
 from torch.utils.data import DataLoader
 import csv
-from scipy.io import wavfile
+#from scipy.io import wavfile
+import soundfile as wavfile
 import numpy
 import time
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ class GoogleSpeechEncoder:
         label_dict = dict()
         for i, x in enumerate(self.label_list):
             label_dict[x] = i
-        self.label_dict = label_dict
+        self.phoneme_index_dict = label_dict
 
         path_to_csv = "../data/GoogleSpeechCommands/hdf5_format/label_index_ID_table.csv"
         with open(path_to_csv, newline='') as csvfile:
@@ -75,7 +76,7 @@ class GoogleSpeechEncoder:
         phonetic_str = self.switcher.get(word_ID)
         #print(phonetic_str)
         phonetic_list = phonetic_str.split(" ")
-        phonetic_id_list = [self.label_dict[x] for x in phonetic_list]
+        phonetic_id_list = [self.phoneme_index_dict[x] for x in phonetic_list]
         return phonetic_id_list
 
     def decode_codes(self):
@@ -127,13 +128,16 @@ class Dataset(data.Dataset, GoogleSpeechEncoder):
             self.dataset = h5py.File(self.hdf5file_path, "r", swmr=True)  # SWMR = Single write multiple read
 
         ID = self.list_IDs[index]
+
         if self.hdf5file_path is not None:  # Reading from hdf5 file
             y = self.dataset['ds/label'][ID]
             if self.isGSC:
                 y = self.encode_labels(y)
             test_sound = self.dataset['ds/data'][ID, :]
         else:  # ID contains the path to the wav file
-            samplerate, test_sound = wavfile.read(ID)
+            wav_path = self.wavfolder_path + ID
+            test_sound, samplerate = wavfile.read(wav_path)
+            self.samplerate = samplerate
             y = self.label_dict[ID]
 
         test_sound = numpy.trim_zeros(test_sound, 'b')

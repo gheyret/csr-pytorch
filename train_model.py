@@ -21,7 +21,7 @@ import ctcdecode
 
 
 # noinspection PyUnresolvedReferences
-def print_cuda_information(using_cuda):
+def print_cuda_information(using_cuda, device):
     print("############ CUDA Information #############")
     print('__Python VERSION:', sys.version)
     print('__pyTorch VERSION:', torch.__version__)
@@ -53,7 +53,7 @@ def create_dataloaders(hdf5file_path_in, partition_in, params_in):
     return training_generator_out, validation_generator_out, testing_generator_out
 
 
-def print_metrics(current_epoch, current_batch, total_batches, loss, edit_distance, start_time, max_epochs, batch_size):
+def print_metrics(current_epoch, current_batch, total_batches, loss, edit_distance, start_time, max_epochs, batch_size, print_frequency):
     print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Edit Distance: {:.4f}, Time: {:.2f}s, Sample/s: {:.2f}'
           .format(current_epoch + 1, max_epochs, current_batch + 1, total_batches, loss.item(),
                   edit_distance, (time.time() - start_time),
@@ -61,7 +61,7 @@ def print_metrics(current_epoch, current_batch, total_batches, loss, edit_distan
 
 
 def train_model(model_input, training_generator, validation_generator, max_epochs, batch_size, optimizer, criterion,
-                using_cuda, early_stopping, decoder):
+                using_cuda, early_stopping, decoder, print_frequency, logger, visdom_logger):
     """
 
     :param early_stopping:
@@ -112,13 +112,12 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
             optimizer.step()
 
             if (i + 1) % print_frequency == 0:
-
                 decoded_sequence, _, _, out_seq_len = decoder.beam_search_batch(outputs, output_lengths)
                 edit_distance = decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
                                                     len(local_target_lengths))
                 evaluated_label = decoded_sequence[0][0][0:out_seq_len[0][0]]
                 true_label = local_targets[0, :local_target_lengths[0]]
-                #edit_distance, _ = compute_edit_distance(outputs, local_targets, local_target_lengths, 0)
+                # edit_distance, _ = compute_edit_distance(outputs, local_targets, local_target_lengths, 0)
                 print('Evaluated: ', evaluated_label)
                 print('True:      ', true_label)
                 logger.update_scalar('continuous/loss', batch_loss)
@@ -126,7 +125,7 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
 
                 print_metrics(current_epoch=epoch, current_batch=i, total_batches=n_training_batches, loss=loss,
                               edit_distance=edit_distance, start_time=batch_time, max_epochs=max_epochs,
-                              batch_size=batch_size)
+                              batch_size=batch_size, print_frequency=print_frequency)
                 batch_time = time.time()
 
             early_stopping.exit_program_early()
@@ -168,7 +167,7 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
         #edit_distance = 0.0
         print_metrics(current_epoch=epoch, current_batch=n_validation_batches - 1, total_batches=n_validation_batches,
                       loss=valid_loss, edit_distance=valid_edit_distance, start_time=batch_time, max_epochs=max_epochs,
-                      batch_size=batch_size)
+                      batch_size=batch_size, print_frequency=print_frequency)
         print('#############################################################################################')
         if early_stopping.stop_training_early:
             print("Early stopping")
@@ -179,7 +178,7 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
     print("Total training time: ", (time.time() - total_time), " s")
 
 
-def evaluate_on_testing_set(model_in, testing_generator_in, criterion, decoder):
+def evaluate_on_testing_set(model_in, testing_generator_in, criterion, decoder, use_cuda):
     import math
     # Testing
     testing_losses = []
@@ -222,6 +221,9 @@ def evaluate_on_testing_set(model_in, testing_generator_in, criterion, decoder):
                   ' testing images. Loss: {:.3f}, PER: {:.4f}'.format(testing_loss, testing_edit_distance))
 
 
+
+
+
 def visualize_data_from_loader(training_generator_in, validation_generator_in):
     print('-------------------------------------------------------------')
     print('--------- Training Generator --------------------------------')
@@ -231,88 +233,3 @@ def visualize_data_from_loader(training_generator_in, validation_generator_in):
     print('--------- Validation Generator --------------------------------')
     for i, (local_batch, local_labels) in enumerate(validation_generator_in, 0):
         print(numpy.unique(local_labels))
-
-
-if __name__ == "__main__":
-    # Parameters
-    continue_training = False
-    model_path_to_train = "./trained_models/checkpoint.pt"
-    model_path_to_evaluate = "./trained_models/checkpoint.pt"  # checkpoint.pt  CNN-BLSTMx2 = 0.1176 PER
-    endEarlyForProfiling = False
-    maxNumBatches = 21
-    runOnCPUOnly = False
-    max_epochs_training = 500
-
-    mini_batch_size = 800
-    print_frequency = 20
-    patience = 5
-    learning_rate = 1e-3  # 1e-3 looks good, 1e-2 is too high
-
-    # Datasets test
-
-    dataset_hdf5_path = "/media/olof/SSD 1TB/data/GoogleSpeechCommands/hdf5_format/"  # "../data/GoogleSpeechCommands/hdf5_format/"
-    hdf5file_path = dataset_hdf5_path + "allWavIdx.hdf5"
-
-    # CUDA for PyTorch
-    use_cuda = torch.cuda.is_available() & (not runOnCPUOnly)
-    device = torch.device("cuda:0" if use_cuda else "cpu")
-
-    if not use_cuda:
-        numberOfWorkers = 0
-        pin_memory = False
-    else:
-        numberOfWorkers = 5
-        pin_memory = True
-
-    params = {'batch_size': mini_batch_size,
-              'shuffle': True,
-              'num_workers': numberOfWorkers,
-              'pin_memory': pin_memory}
-
-    print_cuda_information(use_cuda)
-
-    model_to_train = Net()  # ConvNet()
-    partition = load_data_set_indexes(dataset_hdf5_path)
-
-    # DATALOADERS:
-    # training_set = Dataset(list_IDs=partition['train'], hdf5file_path=hdf5file_path)
-    # training_generator = AudioDataLoader(training_set, **params)
-    #
-    # validation_set = Dataset(list_IDs=partition['validation'], hdf5file_path=hdf5file_path)
-    # validation_generator = AudioDataLoader(validation_set, **params)
-    #
-    # testing_set = Dataset(list_IDs=partition['test'], hdf5file_path=hdf5file_path)
-    # testing_generator = AudioDataLoader(testing_set, **params)
-
-    training_dataloader, validation_dataloader, testing_dataloader = \
-        create_dataloaders(hdf5file_path, partition, params)
-
-    logger = TensorboardLogger()
-    visdom_logger = VisdomLogger("Loss", 20)
-
-    beam_decoder = BeamSearchDecoder()
-
-    criterion_ctc = nn.CTCLoss(zero_infinity=True, reduction='mean')
-    optimizer_adam = torch.optim.Adam(model_to_train.parameters(), lr=learning_rate)
-    if use_cuda:
-        model_to_train.cuda()
-        # optimizer.cuda()
-
-    if continue_training:
-        model_to_train.load_state_dict(torch.load(model_path_to_train))
-
-    # initialize the early_stopping object
-    early_stopper = EarlyStopping(end_early=endEarlyForProfiling, max_num_batches=maxNumBatches, verbose=True,
-                                  patience=patience, checkpoint_path=model_path_to_evaluate)
-
-    print("--------Calling train_model()")
-    train_model(model_to_train, training_dataloader, validation_dataloader, max_epochs_training, mini_batch_size,
-                optimizer_adam, criterion_ctc, use_cuda, early_stopper, beam_decoder)
-    if not endEarlyForProfiling:
-        model_to_evaluate = model_to_train
-        model_to_evaluate.load_state_dict(torch.load(model_path_to_evaluate))
-        evaluate_on_testing_set(model_to_evaluate, testing_dataloader, criterion_ctc, beam_decoder)
-    if use_cuda:
-        print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None) / 1e9, 'GB')
-        print('Maximum GPU memory managed by the caching allocator: ',
-              torch.cuda.max_memory_cached(device=None) / 1e9, 'GB')

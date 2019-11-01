@@ -10,7 +10,7 @@ import csv
 
 
 def csv_to_list(path_to_csv):
-    with open(path_to_csv) as csvfile: # , newline='' in Windows
+    with open(path_to_csv) as csvfile:  # , newline='' in Windows
         output_list = list(csv.reader(csvfile))
         output_list = numpy.asarray(output_list)[0]
         output_list = list(map(int, output_list))
@@ -62,9 +62,6 @@ def import_data(dataset_path, n_words=35, verbose=False, return_index=False):
         if os.path.isdir(dataset_path + '/' + x):
             subFolderList.append(x)
 
-            # n_words = 35
-
-    # print(subFolderList[0:n_words]) #(subFolderList[0:n_words])
     data_ID = []
     label_ID = []
     total = 0
@@ -111,7 +108,7 @@ def import_data(dataset_path, n_words=35, verbose=False, return_index=False):
                 validation_idx.append(i)
             elif ID in test_id:
                 test_idx.append(i)
-        partition_idx = {"train":train_idx, "validation":validation_idx, "test":test_idx}
+        partition_idx = {"train": train_idx, "validation": validation_idx, "test": test_idx}
         return partition_idx, labels, label_index_ID_table
 
     return partition, labels, label_index_ID_table
