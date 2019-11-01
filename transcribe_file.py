@@ -6,11 +6,74 @@ Used to transcribe individual .wav sample into text.
 
 import os
 import torch
-from cnn_model import ConvNet
-from scipy.io import wavfile
+from cnn_model import ConvNet2 as Net
+import soundfile as wavfile
 from data.front_end_processing import logfbank
+from data.import_data import get_phoneme_index_dict
 from torchvision.transforms import transforms
-from data.pytorch_dataset_hdf5_wav import GoogleSpeechEncoder
+import argparse
+from ctc_decoder import BeamSearchDecoder
+
+parser = argparse.ArgumentParser(description="CSR Pytorch transcribe")
+parser.add_argument('--path_to_wav', default="../data/GoogleSpeechCommands/wav_format/backward/0a2b400e_nohash_0.wav")
+parser.add_argument('--path_to_model', default="./trained_models/checkpoint.pt")
+parser.add_argument('--nfft', default=512)
+parser.add_argument('--nfilt', default=70)
+parser.add_argument('--window_size', default=0.02)
+parser.add_argument('--step_size', default=0.01)
+#parser.add_argument('--parse_', default=None)
+
+args = parser.parse_args()
+
+
+def load_model(model_path_in):
+    model = Net()
+    model.load_state_dict(torch.load(model_path_in))
+    model.eval()
+    return model
+
+
+def wav_to_spec(wav_path_in):
+    test_sound, samplerate = wavfile.read(wav_path_in)
+    spec = logfbank(test_sound, samplerate,
+                    winlen=args.window_size,
+                    winstep=args.step_size,
+                    nfilt=args.nfilt,
+                    nfft=args.nfft)
+    return spec
+
+
+def evaluate_sample(spec, transform, model, decoder):
+    input = transform(spec.T).float()
+    input = input.unsqueeze(0)
+    input_percentages = torch.FloatTensor(1)
+    input_percentages[0] = 1.0
+    input_lengths = input_percentages.mul_(int(input.shape[3])).int()
+    output, output_lengths = model(input, input_lengths)
+    decoded_sequence, scores, timesteps, out_seq_len = decoder.beam_search_batch(output, output_lengths)
+
+    return decoded_sequence[0][0][0:out_seq_len[0][0]], scores[0][0], timesteps[0][0], out_seq_len[0][0]
+
+
+model = load_model(args.path_to_model)
+curDir = os.getcwd()
+spec = wav_to_spec(args.path_to_wav)
+
+decoder = BeamSearchDecoder()
+transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize(mean=[0.0],
+                                  std=[0.5])])
+
+decoded_sequence, scores, timesteps, out_seq_len = evaluate_sample(spec, transform, model, decoder)
+
+_, index_phoneme_dict = get_phoneme_index_dict()
+decoded_sequence = decoded_sequence.tolist()
+translated_sequence = [index_phoneme_dict[x] for x in decoded_sequence]
+print('Path: ', args.path_to_wav)
+print('Predicted label sequence: ', translated_sequence)
+
+
 
 
 
@@ -26,7 +89,7 @@ def get_data_id(dataset_path_in):
     label_index = 0
     for x in (sub_folder_list[0:1]):  # (subFolderList[0:n_words])
         # get all the wave files
-        all_files = [x + '/' + y for y in os.listdir(dataset_path + x) if '.wav' in y]
+        all_files = [x + '/' + y for y in os.listdir(dataset_path_in + x) if '.wav' in y]
         total += len(all_files)
 
         data_ID += all_files
@@ -34,84 +97,5 @@ def get_data_id(dataset_path_in):
         label_index += 1
     return data_ID, label_ID
 
-def load_model(model_path_in):
-    model = ConvNet()
-    model.load_state_dict(torch.load(model_path_in))
-    model.eval()
-    return model
-
-def wav_to_spec(dataset_path_in, sample_ID):
-    nfft = 512
-    nfilt = 70
-    window_size = 0.02  # s
-    step_size = 0.01  # s
-    samplerate, test_sound = wavfile.read(dataset_path_in + sample_ID)
-    #test_sound = numpy.trim_zeros(test_sound, 'b')
-    spec = logfbank(test_sound, samplerate,
-                    winlen=window_size,
-                    winstep=step_size,
-                    nfilt=nfilt,
-                    nfft=nfft)
-    return spec
-
-def decode_label(input_label):
-    label_list = ['_', ' ', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B', 'CH', 'D', 'DH', 'EH', 'EHR', 'ER',
-                       'EY', 'F',
-                       'G', 'H', 'IH', 'IY', 'IYR', 'JH', 'K', 'L', 'M', 'N', 'NG', 'O', 'OW', 'OY', 'P', 'R', 'S',
-                       'SH', 'T', 'TH', 'UH', 'UHR', 'UW', 'V', 'W', 'Y', 'Z', 'ZH']  # 0 = blank
-    label_dict = dict()
-    for i, x in enumerate(label_list):
-        label_dict[i] = x
-    label_dict = label_dict
-    phoneme_list = [label_dict[int(x)] for x in input_label]
-    return phoneme_list
-
-def evaluate_sample(spec, transform, model):
-    input = transform(spec.T).float()
-    input = input.unsqueeze(0)
-    output = model(input)
-    return output
-
-
-sample_idx = 5
-dataset_path = "../data/GoogleSpeechCommands/wav_format/"
-data_ID, label_ID = get_data_id(dataset_path)
-# wav_path = dataset_path + "backward/0a24b400e_nohash_0"
-
-# Load model
-model_path = "./trained_models/CNN-BLSTMx2.pt"
-model = load_model(model_path)
-
-spec = wav_to_spec(dataset_path, data_ID[sample_idx])
-
-transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize(mean=[0.0],
-                                  std=[0.5])])
-output = evaluate_sample(spec, transform, model)
-GSE = GoogleSpeechEncoder()
-true_label = GSE.encode_labels(label_ID[sample_idx])
-print(output)
-print(true_label)
-print(decode_label(true_label))
-
-from ctc_decoder import greedy_decode_ctc, beam_ctc_decode
-
-predicted_label_greedy = greedy_decode_ctc(output, balnk_code=0)
-print(predicted_label_greedy)
-phonetic_out = decode_label(predicted_label_greedy)
-print(phonetic_out)
-probs = output[:,0,:].detach().numpy()
-
-labels, score = beam_ctc_decode(probs, balnk_code=0)
-print(labels)
-print(score)
-# Predict and decode
-#outputs = model(local_batch)
-
-# 1. Load in all the names in the dataset so that we can iterate or choose freely
-# 1.2 Convert label to CTC_label & compute length
-# 2. Load the model
-# 3. Use the model to get prob distribution
-# 4. Send output to CTC decoder
-# 5. Compute edit distance / PER
+#dataset_path = "../data/GoogleSpeechCommands/wav_format/"
+#data_ID, label_ID = get_data_id(dataset_path)
