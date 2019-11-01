@@ -11,12 +11,12 @@ from ctc_decoder import BeamSearchDecoder
 
 class InstructionsProcessor(object):
 
-    def __init__(self, model_input, training_generator, validation_generator, max_epochs_training, batch_size, learning_rate,
+    def __init__(self, model_input, training_dataloader, validation_dataloader, max_epochs_training, batch_size, learning_rate,
                 using_cuda, early_stopping, tensorboard_logger, visdom_logger, print_frequency=20):
         self.model = model_input
 
-        self.training_generator = training_generator
-        self.validation_generator = validation_generator
+        self.training_dataloader = training_dataloader
+        self.validation_dataloader = validation_dataloader
         self.max_epochs_training = max_epochs_training
         self.batch_size = batch_size
         self.use_cuda = using_cuda
@@ -95,15 +95,15 @@ class InstructionsProcessor(object):
         total_time = time.time()
         train_losses = []
 
-        n_training_batches = len(self.training_generator)
-        n_validation_batches = len(self.validation_generator)
+        n_training_batches = len(self.training_dataloader)
+        n_validation_batches = len(self.validation_dataloader)
         print("Starting training:")
         self.batch_time = time.time()
         for epoch in range(self.max_epochs_training):
             # Training
             self.model.train()
             print("Epoch ", epoch, "/", self.max_epochs_training, " starting.")
-            for batch_i, (local_data) in enumerate(self.training_generator, 0):
+            for batch_i, (local_data) in enumerate(self.training_dataloader, 0):
                 self.process_batch_training(local_data, epoch, batch_i, n_training_batches)
                 self.early_stopping.exit_program_early()
                 if self.early_stopping.stop_program:
@@ -112,7 +112,7 @@ class InstructionsProcessor(object):
                 break
 
             # Validation
-            self.evaluate_model(self.validation_generator, use_early_stopping=True, epoch=epoch)
+            self.evaluate_model(self.validation_dataloader, use_early_stopping=True, epoch=epoch)
 
             if self.early_stopping.stop_training_early:
                 print("Early stopping")
@@ -120,14 +120,14 @@ class InstructionsProcessor(object):
         print('Finished Training')
         print("Total training time: ", (time.time() - total_time), " s")
 
-    def evaluate_model(self, data_generator, use_early_stopping, epoch, mode=""):
-        n_generator_batches = len(data_generator)
+    def evaluate_model(self, data_dataloader, use_early_stopping, epoch, mode=""):
+        n_dataloader_batches = len(data_dataloader)
         with torch.set_grad_enabled(False):
             self.model.eval()
             self.batch_time = time.time()
             eval_losses = []
             eval_edit_distances = []
-            for (local_data) in data_generator:
+            for (local_data) in data_dataloader:
                 eval_losses, eval_edit_distances = self.process_batch_evaluation(local_data, eval_losses, eval_edit_distances)
             eval_loss = numpy.average(eval_losses)
             eval_edit_distance = numpy.average(eval_edit_distances)
@@ -135,11 +135,11 @@ class InstructionsProcessor(object):
             print('---------------------------------------------------------------------------------------------')
             if use_early_stopping:
                 self.early_stopping(eval_loss, self.model)
-            self.print_metrics(current_epoch=epoch, current_batch=n_generator_batches - 1,
-                               total_batches=n_generator_batches,
+            self.print_metrics(current_epoch=epoch, current_batch=n_dataloader_batches - 1,
+                               total_batches=n_dataloader_batches,
                                loss=eval_loss, edit_distance=eval_edit_distance, start_time=self.batch_time,
                                max_epochs=self.max_epochs_training,
-                               batch_size=self.batch_size, print_frequency=n_generator_batches)
+                               batch_size=self.batch_size, print_frequency=n_dataloader_batches)
             print('#############################################################################################')
 
     def print_cuda_information(self, use_cuda, device):

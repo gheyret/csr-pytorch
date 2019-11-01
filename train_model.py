@@ -9,15 +9,7 @@ import time
 import numpy
 import sys
 import torch
-import torch.nn as nn
-from data.pytorch_dataset_hdf5_wav import Dataset, AudioDataLoader
-from cnn_model import ConvNet2 as Net
-from data.import_data_GSC import load_data_set_indexes
-from early_stopping import EarlyStopping
-from ctc_decoder import decode_sample, compute_edit_distance, BeamSearchDecoder
-from analytics.logger import TensorboardLogger, VisdomLogger
-import ctcdecode
-
+from data.pytorch_dataloader_wav import Dataset, AudioDataLoader
 
 
 # noinspection PyUnresolvedReferences
@@ -179,7 +171,6 @@ def train_model(model_input, training_generator, validation_generator, max_epoch
 
 
 def evaluate_on_testing_set(model_in, testing_generator_in, criterion, decoder, use_cuda):
-    import math
     # Testing
     testing_losses = []
     testing_edit_distances = []

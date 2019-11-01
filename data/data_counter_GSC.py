@@ -1,20 +1,24 @@
-from data.import_data_GSC import import_data
+from data.import_data import import_data_gsc
 import os
 import csv
 from os.path import dirname
+import argparse
 
+parser = argparse.ArgumentParser(description="CSR Pytorch")
+parser.add_argument('--dataset_path_relative', default="/data/GoogleSpeechCommands/wav_format/")
+parser.add_argument('--dataset_path', default=None)
 
-dataset_path_relative = "/data/GoogleSpeechCommands/wav_format/"
+args = parser.parse_args()
+if args.dataset_path is None:
+    parent_dir = dirname(os.getcwd())
+    dataset_path = parent_dir + args.dataset_path_relative
+    if not os.path.exists(dataset_path):
+        grandparent_dir = dirname(dirname(os.getcwd()))
+        dataset_path = grandparent_dir + args.dataset_path_relative
+else:
+    dataset_path = args.dataset_path
 
-parent_dir = dirname(os.getcwd())
-dataset_path = parent_dir + dataset_path_relative
-if not os.path.exists(dataset_path):
-    grandparent_dir = dirname(dirname(os.getcwd()))
-    dataset_path = grandparent_dir + dataset_path_relative
-
-dataset_path = "D:\data\GoogleSpeechCommands\wav_format/"
-
-partition, labels, label_index_ID_table = import_data(dataset_path)
+partition, labels = import_data_gsc(dataset_path, verbose=True)
 
 training_dict = dict()
 word_counter_dict = dict()

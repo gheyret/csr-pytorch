@@ -1,12 +1,9 @@
 # from train_model import print_cuda_information, train_model, evaluate_on_testing_set, create_dataloaders
 from analytics.logger import TensorboardLogger, VisdomLogger
 from early_stopping import EarlyStopping
-from data.import_data_GSC import load_data_set_indexes
-from ctc_decoder import BeamSearchDecoder
-from data.pytorch_dataset_hdf5_wav import Dataset, AudioDataLoader
-from data.import_data_gen import import_data_generated
+from data.pytorch_dataloader_wav import Dataset, AudioDataLoader
+from data.import_data import import_data_generated
 import torch
-import torch.nn as nn
 from cnn_model import ConvNet2 as Net
 from instructions_processor import InstructionsProcessor
 import argparse
@@ -74,7 +71,7 @@ if __name__ == "__main__":
         training_set = Dataset(list_IDs=list_id_train, wavfolder_path=train_path, label_dict=label_dict_train)
         training_dataloader = AudioDataLoader(training_set, **params)
     if False:
-        from data.import_data_gen import csv_to_list, csv_to_dict
+        from data.import_data import csv_to_list, csv_to_dict
 
         list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
         label_dict_test = csv_to_dict(args.gsc_path + "dict_labels_test.csv")

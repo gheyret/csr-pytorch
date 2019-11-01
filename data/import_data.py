@@ -1,51 +1,7 @@
 import os
 import csv
-import numpy
-from pathlib import Path
 
-def encode_labels_gsc(word_id, phoneme_index_dict):
-    switcher = {
-        "backward": "B AE K W AX D",  # backward
-        "bed": "B EH D",  # bed
-        "bird": "B ER D",  # bird
-        "cat": "K AE T",  # cat
-        "dog": "D O G",  # dog
-        "down": "D AW N",  # down
-        "eight": "EY T",  # 'eight',
-        "five": "F AY V",  # 'five',
-        "follow": "F O L OW",  # 'follow',
-        "forward": "F AO W AX D",  # 'forward',
-        "four": "F AO",  # 'four',
-        "go": "G OW",  # 'go',
-        "happy": "H AE P IY",  # 'happy',
-        "house": "H AW S",  # 'house',
-        "learn": "L ER N",  # 'learn',
-        "left": "L EH F T",  # 'left',
-        "marvin": "M AA V IH N",  # 'marvin',
-        "nine": "N AY N",  # 'nine',
-        "no": "N OW",  # 'no',
-        "off": "O F",  # 'off',
-        "on": "O N",  # 'on',
-        "one": "W AH N",  # 'one',
-        "right": "R AY T",  # 'right',
-        "seven": "S EH V AX N",  # 'seven',
-        "sheila": "SH IY L AX",  # 'sheila',
-        "six": "S IH K S",  # 'six',
-        "stop": "S T O P",  # 'stop',
-        "three": "TH R IY",  # 'three',
-        "tree": "T R IY",  # 'tree',
-        "two": "T UW",  # 'two',
-        "up": "AH P",  # 'up',
-        "visual": "V IH ZH UHR L",  # 'visual',
-        "wow": "W AW",  # 'wow',
-        "yes": "Y EH S",  # 'yes',
-        "zero": "Z IYR R OW"  # 'zero'
-    }
-    phonetic_str = switcher.get(word_id)
-    # print(phonetic_str)
-    phonetic_list = phonetic_str.split(" ")
-    phonetic_id_list = [phoneme_index_dict[x] for x in phonetic_list]
-    return phonetic_id_list
+
 
 def get_phoneme_index_dict():
     label_list = ['_', ' ', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B',
@@ -107,6 +63,51 @@ def import_data_generated(dataset_path, verbose=False):
     return list_id, label_dict
 
 
+def encode_labels_gsc(word_id, phoneme_index_dict):
+    switcher = {
+        "backward": "B AE K W AX D",  # backward
+        "bed": "B EH D",  # bed
+        "bird": "B ER D",  # bird
+        "cat": "K AE T",  # cat
+        "dog": "D O G",  # dog
+        "down": "D AW N",  # down
+        "eight": "EY T",  # 'eight',
+        "five": "F AY V",  # 'five',
+        "follow": "F O L OW",  # 'follow',
+        "forward": "F AO W AX D",  # 'forward',
+        "four": "F AO",  # 'four',
+        "go": "G OW",  # 'go',
+        "happy": "H AE P IY",  # 'happy',
+        "house": "H AW S",  # 'house',
+        "learn": "L ER N",  # 'learn',
+        "left": "L EH F T",  # 'left',
+        "marvin": "M AA V IH N",  # 'marvin',
+        "nine": "N AY N",  # 'nine',
+        "no": "N OW",  # 'no',
+        "off": "O F",  # 'off',
+        "on": "O N",  # 'on',
+        "one": "W AH N",  # 'one',
+        "right": "R AY T",  # 'right',
+        "seven": "S EH V AX N",  # 'seven',
+        "sheila": "SH IY L AX",  # 'sheila',
+        "six": "S IH K S",  # 'six',
+        "stop": "S T O P",  # 'stop',
+        "three": "TH R IY",  # 'three',
+        "tree": "T R IY",  # 'tree',
+        "two": "T UW",  # 'two',
+        "up": "AH P",  # 'up',
+        "visual": "V IH ZH UHR L",  # 'visual',
+        "wow": "W AW",  # 'wow',
+        "yes": "Y EH S",  # 'yes',
+        "zero": "Z IYR R OW"  # 'zero'
+    }
+    phonetic_str = switcher.get(word_id)
+    # print(phonetic_str)
+    phonetic_list = phonetic_str.split(" ")
+    phonetic_id_list = [phoneme_index_dict[x] for x in phonetic_list]
+    return phonetic_id_list
+
+
 def import_data_gsc(dataset_path, verbose=False):
     '''
 
@@ -125,7 +126,6 @@ def import_data_gsc(dataset_path, verbose=False):
 
     for s in contents:
         s = s.replace("\n", '')
-        #s = s.replace(".wav", '')
         test_names.extend([s])
 
     # Read the validation file and extract all IDs
@@ -138,22 +138,14 @@ def import_data_gsc(dataset_path, verbose=False):
 
     for s in contents:
         s = s.replace("\n", '')
-        #s = s.replace(".wav", '')
         validation_names.extend([s])
 
-    # Construct a dictionary containing all test/validation IDs
-    #partition = {"test": test_names, "validation": validation_names}
-
     # Extract ID of all files and store Label & name in categories train/test/validation
-    subFolderList = []
-    folder_idx = 0
-    label_index_ID_table = dict()
+    sub_folder_list = []
     for x in os.listdir(dataset_path):
         if os.path.isdir(dataset_path + '/' + x):
             if "_background" not in x:
-                subFolderList.append(x)
-                label_index_ID_table[x] = folder_idx
-                folder_idx += 1
+                sub_folder_list.append(x)
 
     test_label = dict()
     validation_label = dict()
@@ -163,11 +155,10 @@ def import_data_gsc(dataset_path, verbose=False):
     total = 0
     phoneme_index_dict = get_phoneme_index_dict()
 
-    for x in subFolderList:  # (subFolderList[0:n_words])
+    for x in sub_folder_list:
         # get all the wave files
         all_files = [x + '/' + y for y in os.listdir(dataset_path + x) if '.wav' in y]
         total += len(all_files)
-        #label_index = label_index_ID_table[x]
         label_list = encode_labels_gsc(x, phoneme_index_dict)
         for file_name in all_files:
             if file_name in test_names:
@@ -179,7 +170,6 @@ def import_data_gsc(dataset_path, verbose=False):
                 train_label[file_name] = label_list
 
         # show file counts
-
         if verbose: print('count: %d : %s' % (len(all_files), x))
     if verbose: print("Total number of files: ", total)
 
@@ -188,8 +178,8 @@ def import_data_gsc(dataset_path, verbose=False):
 
     return partition_names, partition_labels
 
-def generate_csv_gsc(dataset_path, partition_names, partition_labels):
 
+def generate_csv_gsc(dataset_path, partition_names, partition_labels):
 
     for partition_type in ['test', 'validation', 'train']:
         if not os.path.exists(dataset_path + "list_id_" + partition_type):
@@ -206,12 +196,14 @@ def generate_csv_gsc(dataset_path, partition_names, partition_labels):
                 for key, val in partition.items():
                     writer.writerow([key, val])
 
+
 def csv_to_list(path_to_csv):
     with open(path_to_csv) as csvfile:  # , newline='' in Windows
         output_list = list(csv.reader(csvfile))
         #output_list = numpy.asarray(output_list)[0]
         output_list = [x[0] for x in output_list]
         return output_list
+
 
 def csv_to_dict(path_to_csv):
     dict_out = dict()
@@ -224,11 +216,3 @@ def csv_to_dict(path_to_csv):
             dict_out[key] = value
         return dict_out
 
-#list_id, label_dict = import_data_generated("/media/olof/SSD 1TB/data/GoogleSpeechCommands/generated/test/")
-#import time
-#time_start = time.time()
-#partition_names, partition_labels = import_data_gsc("/media/olof/SSD 1TB/data/GoogleSpeechCommands/wav_format/", verbose=True)
-#print(time.time()-time_start)
-#generate_csv_gsc("/media/olof/SSD 1TB/data/GoogleSpeechCommands/wav_format/", partition_names, partition_labels)
-
-#csv_to_dict("/media/olof/SSD 1TB/data/GoogleSpeechCommands/wav_format/list_labels_validation.csv")

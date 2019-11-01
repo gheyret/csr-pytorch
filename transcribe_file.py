@@ -10,7 +10,7 @@ from cnn_model import ConvNet
 from scipy.io import wavfile
 from data.front_end_processing import logfbank
 from torchvision.transforms import transforms
-from data.pytorch_dataset_hdf5_wav import GoogleSpeechEncoder
+from data.pytorch_dataloader_wav import GoogleSpeechEncoder
 
 
 
