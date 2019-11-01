@@ -93,10 +93,8 @@ class InstructionsProcessor(object):
     def train_model(self):
         print('Function train_model called by: ', repr(__name__))
         total_time = time.time()
-        train_losses = []
 
         n_training_batches = len(self.training_dataloader)
-        n_validation_batches = len(self.validation_dataloader)
         print("Starting training:")
         self.batch_time = time.time()
         for epoch in range(self.max_epochs_training):

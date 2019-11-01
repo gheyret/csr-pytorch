@@ -10,9 +10,11 @@ def get_phoneme_index_dict():
                   'OY', 'P', 'R', 'S', 'SH', 'T', 'TH', 'UH', 'UHR', 'UW',
                   'V', 'W', 'Y', 'Z', 'ZH']
     phoneme_index_dict = dict()
+    index_phoneme_dict = dict()
     for i, x in enumerate(label_list):
         phoneme_index_dict[x] = i
-    return phoneme_index_dict
+        index_phoneme_dict[i] = x
+    return phoneme_index_dict, index_phoneme_dict
 
 def import_data_generated(dataset_path, verbose=False):
     '''
@@ -36,7 +38,7 @@ def import_data_generated(dataset_path, verbose=False):
     txt_file = parent_dir + "/" + last_dir + ".txt"
 
     list_id = []
-    phoneme_index_dict = get_phoneme_index_dict()
+    phoneme_index_dict, _ = get_phoneme_index_dict()
 
     label_dict = dict()
     with open(txt_file, 'r') as file:
@@ -153,7 +155,7 @@ def import_data_gsc(dataset_path, verbose=False):
 
     train_names = []
     total = 0
-    phoneme_index_dict = get_phoneme_index_dict()
+    phoneme_index_dict, _ = get_phoneme_index_dict()
 
     for x in sub_folder_list:
         # get all the wave files

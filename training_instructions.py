@@ -19,7 +19,7 @@ parser.add_argument('--end_early_batches', default=21)
 parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs',default=500)
 parser.add_argument('--print_frequency', default=20)
-parser.add_argument('--validation_patience', default=3)
+parser.add_argument('--validation_patience', default=5)
 parser.add_argument('--learning_rate', default=1e-3)
 parser.add_argument('--number_of_workers', default=5)
 parser.add_argument('--batch_size', default=800)
@@ -53,53 +53,52 @@ if __name__ == "__main__":
               'num_workers': numberOfWorkers,
               'pin_memory': pin_memory}
 
-    # DATALOADERS:
-    if True:
-        test_path = args.generated_path + "test/"
-        list_id_test, label_dict_test = import_data_generated(test_path)
-        testing_set = Dataset(list_IDs=list_id_test, wavfolder_path=test_path, label_dict=label_dict_test)
-        testing_dataloader = AudioDataLoader(testing_set, **params)
+    # DATALOADERS Generated:
+    test_path = args.generated_path + "test/"
+    list_id_test, label_dict_test = import_data_generated(test_path)
+    testing_set = Dataset(list_ids=list_id_test, wavfolder_path=test_path, label_dict=label_dict_test)
+    testing_dataloader_gen = AudioDataLoader(testing_set, **params)
 
-        validation_path = args.generated_path + "validation/"
-        list_id_validation, label_dict_validation = import_data_generated(validation_path)
-        validation_set = Dataset(list_IDs=list_id_validation, wavfolder_path=validation_path,
-                                 label_dict=label_dict_validation)
-        validation_dataloader = AudioDataLoader(validation_set, **params)
+    validation_path = args.generated_path + "validation/"
+    list_id_validation, label_dict_validation = import_data_generated(validation_path)
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=validation_path,
+                             label_dict=label_dict_validation)
+    validation_dataloader_gen = AudioDataLoader(validation_set, **params)
 
-        train_path = args.generated_path + "train/"
-        list_id_train, label_dict_train = import_data_generated(train_path)
-        training_set = Dataset(list_IDs=list_id_train, wavfolder_path=train_path, label_dict=label_dict_train)
-        training_dataloader = AudioDataLoader(training_set, **params)
-    if False:
-        from data.import_data import csv_to_list, csv_to_dict
+    train_path = args.generated_path + "train/"
+    list_id_train, label_dict_train = import_data_generated(train_path)
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=train_path, label_dict=label_dict_train)
+    training_dataloader_gen = AudioDataLoader(training_set, **params)
+    from data.import_data import csv_to_list, csv_to_dict
 
-        list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
-        label_dict_test = csv_to_dict(args.gsc_path + "dict_labels_test.csv")
-        testing_set = Dataset(list_IDs=list_id_test, wavfolder_path=gsc_path, label_dict=label_dict_test)
-        testing_dataloader = AudioDataLoader(testing_set, **params)
+    # DATALOADERS GSC:
+    list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
+    label_dict_test = csv_to_dict(args.gsc_path + "dict_labels_test.csv")
+    testing_set = Dataset(list_IDs=list_id_test, wavfolder_path=args.gsc_path, label_dict=label_dict_test)
+    testing_dataloader_gsc = AudioDataLoader(testing_set, **params)
 
-        list_id_validation = csv_to_list(args.gsc_path + "list_id_validation.csv")
-        label_dict_validation = csv_to_dict(args.gsc_path + "dict_labels_validation.csv")
-        validation_set = Dataset(list_IDs=list_id_validation, wavfolder_path=gsc_path, label_dict=label_dict_validation)
-        validation_dataloader = AudioDataLoader(validation_set, **params)
+    list_id_validation = csv_to_list(args.gsc_path + "list_id_validation.csv")
+    label_dict_validation = csv_to_dict(args.gsc_path + "dict_labels_validation.csv")
+    validation_set = Dataset(list_IDs=list_id_validation, wavfolder_path=args.gsc_path, label_dict=label_dict_validation)
+    validation_dataloader_gsc = AudioDataLoader(validation_set, **params)
 
-        list_id_train = csv_to_list(args.gsc_path + "list_id_train.csv")
-        label_dict_train = csv_to_dict(args.gsc_path + "dict_labels_train.csv")
-        training_set = Dataset(list_IDs=list_id_train, wavfolder_path=gsc_path, label_dict=label_dict_train)
-        training_dataloader = AudioDataLoader(training_set, **params)
+    list_id_train = csv_to_list(args.gsc_path + "list_id_train.csv")
+    label_dict_train = csv_to_dict(args.gsc_path + "dict_labels_train.csv")
+    training_set = Dataset(list_IDs=list_id_train, wavfolder_path=args.gsc_path, label_dict=label_dict_train)
+    training_dataloader_gsc = AudioDataLoader(training_set, **params)
 
     tensorboard_logger = TensorboardLogger()
     visdom_logger = VisdomLogger("Loss", 20)
 
-    processor = InstructionsProcessor(model, training_dataloader, validation_dataloader, args.max_training_epochs,
+    processor = InstructionsProcessor(model, training_dataloader_gen, validation_dataloader_gen, args.max_training_epochs,
                                       args.batch_size, args.learning_rate, use_cuda, early_stopper, tensorboard_logger,
                                       visdom_logger, print_frequency=args.print_frequency)
     print("--------Calling train_model()")
     processor.print_cuda_information(use_cuda, device)
     processor.train_model()
-    if not endEarlyForProfiling:
-        processor.evaluate_model(testing_dataloader, use_early_stopping=False, epoch=-1)
-
+    if not args.end_early_for_profiling:
+        processor.evaluate_model(testing_dataloader_gen, use_early_stopping=False, epoch=-1)
+        processor.evaluate_model(testing_dataloader_gsc, use_early_stopping=False, epoch=-1)
         # model_to_evaluate.load_state_dict(torch.load(model_path_to_evaluate))
         # evaluate_on_testing_set(model_to_evaluate, testing_dataloader, criterion_ctc, beam_decoder)
     if use_cuda:

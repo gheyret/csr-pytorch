@@ -4,9 +4,14 @@ import csv
 from os.path import dirname
 import argparse
 
-parser = argparse.ArgumentParser(description="CSR Pytorch")
+parser = argparse.ArgumentParser(description="Counting datapoints")
 parser.add_argument('--dataset_path_relative', default="/data/GoogleSpeechCommands/wav_format/")
 parser.add_argument('--dataset_path', default=None)
+
+'''
+Purpose is to count the number of occurences of each word from the GSC dataset and output this information in a 
+csv file.
+'''
 
 args = parser.parse_args()
 if args.dataset_path is None:
