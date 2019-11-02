@@ -6,13 +6,11 @@ import numpy
 from ctc_decoder import BeamSearchDecoder
 
 
-
-
-
 class InstructionsProcessor(object):
 
-    def __init__(self, model_input, training_dataloader, validation_dataloader, max_epochs_training, batch_size, learning_rate,
-                using_cuda, early_stopping, tensorboard_logger, visdom_logger, print_frequency=20):
+    def __init__(self, model_input, training_dataloader, validation_dataloader, max_epochs_training, batch_size,
+                 learning_rate,
+                 using_cuda, early_stopping, tensorboard_logger, print_frequency=20):
         self.model = model_input
 
         self.training_dataloader = training_dataloader
@@ -22,7 +20,6 @@ class InstructionsProcessor(object):
         self.use_cuda = using_cuda
         self.early_stopping = early_stopping
         self.tensorboard_logger = tensorboard_logger
-        self.visdom_logger = visdom_logger
         self.decoder = BeamSearchDecoder()
         self.print_frequency = print_frequency
 
@@ -48,11 +45,12 @@ class InstructionsProcessor(object):
 
         decoded_sequence, _, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
         edit_distance = self.decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
-                                            len(local_target_lengths))
+                                                 len(local_target_lengths))
         edit_distances.append(edit_distance)
         return losses, edit_distances
 
-    def process_batch_training(self, local_data, epoch, batch_i, n_training_batches):
+    def process_batch_training(self, local_data, epoch, batch_i, n_training_batches, train_losses, edit_distances,
+                               verbose=False):
         local_batch, local_targets, local_input_percentages, local_target_lengths = local_data
         input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
 
@@ -76,21 +74,28 @@ class InstructionsProcessor(object):
         if (batch_i + 1) % self.print_frequency == 0:
             decoded_sequence, _, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
             edit_distance = self.decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
-                                                len(local_target_lengths))
+                                                     len(local_target_lengths))
             evaluated_label = decoded_sequence[0][0][0:out_seq_len[0][0]]
             true_label = local_targets[0, :local_target_lengths[0]]
-            # edit_distance, _ = compute_edit_distance(outputs, local_targets, local_target_lengths, 0)
-            print('Evaluated: ', evaluated_label)
-            print('True:      ', true_label)
+
+            train_losses.append(batch_loss)
+            edit_distances.append(edit_distance)
+
+
             self.tensorboard_logger.update_scalar('continuous/loss', batch_loss)
-            self.visdom_logger.update(batch_loss, edit_distance)
-
-            self.print_metrics(current_epoch=epoch, current_batch=batch_i, total_batches=n_training_batches, loss=loss,
-                          edit_distance=edit_distance, start_time=self.batch_time, max_epochs=self.max_epochs_training,
-                          batch_size=self.batch_size, print_frequency=self.print_frequency)
+            # visdom_logger.update(batch_loss, edit_distance)
+            if verbose:
+                print('Evaluated: ', evaluated_label)
+                print('True:      ', true_label)
+                self.print_metrics(current_epoch=epoch, current_batch=batch_i, total_batches=n_training_batches,
+                                   loss=loss,
+                                   edit_distance=edit_distance, start_time=self.batch_time,
+                                   max_epochs=self.max_epochs_training,
+                                   batch_size=self.batch_size, print_frequency=self.print_frequency)
             self.batch_time = time.time()
+        return train_losses, edit_distances
 
-    def train_model(self):
+    def train_model(self, visdom_logger_train, verbose=False):
         print('Function train_model called by: ', repr(__name__))
         total_time = time.time()
 
@@ -100,25 +105,34 @@ class InstructionsProcessor(object):
         for epoch in range(self.max_epochs_training):
             # Training
             self.model.train()
-            print("Epoch ", epoch, "/", self.max_epochs_training, " starting.")
+            train_losses = []
+            train_edit_distances = []
+            if verbose:
+                print("Epoch ", epoch, "/", self.max_epochs_training, " starting.")
             for batch_i, (local_data) in enumerate(self.training_dataloader, 0):
-                self.process_batch_training(local_data, epoch, batch_i, n_training_batches)
+                train_losses, train_edit_distances = self.process_batch_training(local_data, epoch, batch_i,
+                                                                                 n_training_batches, train_losses,
+                                                                                 train_edit_distances, verbose)
                 self.early_stopping.exit_program_early()
                 if self.early_stopping.stop_program:
                     break
+            train_loss = numpy.average(train_losses)
+            train_edit_distance = numpy.average(train_edit_distances)
+            visdom_logger_train.add_value(["loss_train", "PER_train"], [train_loss, train_edit_distance])
             if self.early_stopping.stop_program:
                 break
 
             # Validation
-            self.evaluate_model(self.validation_dataloader, use_early_stopping=True, epoch=epoch)
-
+            self.evaluate_model(self.validation_dataloader, use_early_stopping=True, epoch=epoch,
+                                visdom_logger=visdom_logger_train)
+            visdom_logger_train.update()
             if self.early_stopping.stop_training_early:
                 print("Early stopping")
                 break
         print('Finished Training')
         print("Total training time: ", (time.time() - total_time), " s")
 
-    def evaluate_model(self, data_dataloader, use_early_stopping, epoch, mode=""):
+    def evaluate_model(self, data_dataloader, use_early_stopping, epoch, visdom_logger=None, mode=""):
         n_dataloader_batches = len(data_dataloader)
         with torch.set_grad_enabled(False):
             self.model.eval()
@@ -126,10 +140,12 @@ class InstructionsProcessor(object):
             eval_losses = []
             eval_edit_distances = []
             for (local_data) in data_dataloader:
-                eval_losses, eval_edit_distances = self.process_batch_evaluation(local_data, eval_losses, eval_edit_distances)
+                eval_losses, eval_edit_distances = self.process_batch_evaluation(local_data, eval_losses,
+                                                                                 eval_edit_distances)
             eval_loss = numpy.average(eval_losses)
             eval_edit_distance = numpy.average(eval_edit_distances)
-
+            if visdom_logger is not None:
+                visdom_logger.add_value(["loss_val", "PER_val"], [eval_loss, eval_edit_distance])
             print('---------------------------------------------------------------------------------------------')
             if use_early_stopping:
                 self.early_stopping(eval_loss, self.model)
@@ -170,3 +186,11 @@ class InstructionsProcessor(object):
 
     def get_model(self):
         return self.model
+
+    def save_model(self, model_save_path):
+        torch.save(self.model.state_dict(), model_save_path)
+        print("Saved model at path: ", model_save_path)
+
+    def load_model(self, model_load_path):
+        self.model.load_state_dict(torch.load(model_load_path))
+        print("Loaded model at path: ", model_load_path)

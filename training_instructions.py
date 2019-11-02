@@ -17,13 +17,13 @@ parser.add_argument('--early_stopping_checkpoint_path', default='./trained_model
 parser.add_argument('--end_early_for_profiling', default=False)
 parser.add_argument('--end_early_batches', default=21)
 parser.add_argument('--run_on_cpu', default=False)
-parser.add_argument('--max_training_epochs',default=500)
+parser.add_argument('--max_training_epochs', default=500)
 parser.add_argument('--print_frequency', default=20)
-parser.add_argument('--validation_patience', default=5)
+parser.add_argument('--validation_patience', default=1)
 parser.add_argument('--learning_rate', default=1e-3)
-parser.add_argument('--number_of_workers', default=5)
-parser.add_argument('--batch_size', default=800)
-parser.add_argument('--early_stopping_delta', default=0.01)
+parser.add_argument('--number_of_workers', default=8)
+parser.add_argument('--batch_size', default=1200)
+parser.add_argument('--early_stopping_delta', default=0.001)
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -34,8 +34,10 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(args.continue_training_model_path))
 
     # initialize the early_stopping object
-    early_stopper = EarlyStopping(end_early=args.end_early_for_profiling, max_num_batches=args.end_early_batches, delta=args.early_stopping_delta,
-                                  verbose=True, patience=args.validation_patience, checkpoint_path=args.early_stopping_checkpoint_path)
+    early_stopper = EarlyStopping(end_early=args.end_early_for_profiling, max_num_batches=args.end_early_batches,
+                                  delta=args.early_stopping_delta,
+                                  verbose=True, patience=args.validation_patience,
+                                  checkpoint_path=args.early_stopping_checkpoint_path)
 
     # CUDA for PyTorch
     use_cuda = torch.cuda.is_available() & (not args.run_on_cpu)
@@ -74,33 +76,63 @@ if __name__ == "__main__":
     # DATALOADERS GSC:
     list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
     label_dict_test = csv_to_dict(args.gsc_path + "dict_labels_test.csv")
-    testing_set = Dataset(list_IDs=list_id_test, wavfolder_path=args.gsc_path, label_dict=label_dict_test)
+    testing_set = Dataset(list_ids=list_id_test, wavfolder_path=args.gsc_path, label_dict=label_dict_test)
     testing_dataloader_gsc = AudioDataLoader(testing_set, **params)
 
     list_id_validation = csv_to_list(args.gsc_path + "list_id_validation.csv")
     label_dict_validation = csv_to_dict(args.gsc_path + "dict_labels_validation.csv")
-    validation_set = Dataset(list_IDs=list_id_validation, wavfolder_path=args.gsc_path, label_dict=label_dict_validation)
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=args.gsc_path,
+                             label_dict=label_dict_validation)
     validation_dataloader_gsc = AudioDataLoader(validation_set, **params)
 
     list_id_train = csv_to_list(args.gsc_path + "list_id_train.csv")
     label_dict_train = csv_to_dict(args.gsc_path + "dict_labels_train.csv")
-    training_set = Dataset(list_IDs=list_id_train, wavfolder_path=args.gsc_path, label_dict=label_dict_train)
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=args.gsc_path, label_dict=label_dict_train)
     training_dataloader_gsc = AudioDataLoader(training_set, **params)
 
     tensorboard_logger = TensorboardLogger()
-    visdom_logger = VisdomLogger("Loss", 20)
 
-    processor = InstructionsProcessor(model, training_dataloader_gen, validation_dataloader_gen, args.max_training_epochs,
-                                      args.batch_size, args.learning_rate, use_cuda, early_stopper, tensorboard_logger,
-                                      visdom_logger, print_frequency=args.print_frequency)
+    # ################################## GEN TRAIN ######################
+    visdom_logger_train_gen = VisdomLogger("Training_gen", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
+
+    processor_gen = InstructionsProcessor(model, training_dataloader_gen, validation_dataloader_gen,
+                                          args.max_training_epochs,
+                                          args.batch_size, args.learning_rate, use_cuda, early_stopper,
+                                          tensorboard_logger,
+                                          print_frequency=args.print_frequency)
     print("--------Calling train_model()")
-    processor.print_cuda_information(use_cuda, device)
-    processor.train_model()
-    if not args.end_early_for_profiling:
-        processor.evaluate_model(testing_dataloader_gen, use_early_stopping=False, epoch=-1)
-        processor.evaluate_model(testing_dataloader_gsc, use_early_stopping=False, epoch=-1)
-        # model_to_evaluate.load_state_dict(torch.load(model_path_to_evaluate))
-        # evaluate_on_testing_set(model_to_evaluate, testing_dataloader, criterion_ctc, beam_decoder)
+    processor_gen.print_cuda_information(use_cuda, device)
+    processor_gen.train_model(visdom_logger_train_gen)
+    processor_gen.save_model("./trained_models/gen16000.pt")
+    # processor_gen.load_model("./trained_models/gen16000.pt")
+
+    print("Evaluating on generated data:")
+    processor_gen.evaluate_model(testing_dataloader_gen, use_early_stopping=False, epoch=-1)
+    print("Evaluating on recorded data:")
+    processor_gen.evaluate_model(testing_dataloader_gsc, use_early_stopping=False, epoch=-1)
+
+    # ################################# GSC TRAIN #########################
+
+    early_stopper.reset()
+    visdom_logger_train_gsc = VisdomLogger("Training_gsc", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
+    processor_gsc = InstructionsProcessor(model, training_dataloader_gsc, validation_dataloader_gsc,
+                                          args.max_training_epochs,
+                                          args.batch_size, args.learning_rate, use_cuda, early_stopper,
+                                          tensorboard_logger,
+                                          print_frequency=args.print_frequency)
+    print("--------Calling train_model()")
+    processor_gsc.train_model(visdom_logger_train_gsc)
+    processor_gsc.save_model("./trained_models/gsc16000.pt")
+    # if not args.end_early_for_profiling:
+    print("Evaluating on generated data:")
+    processor_gsc.evaluate_model(testing_dataloader_gen, use_early_stopping=False, epoch=-1)
+    print("Evaluating on recorded data:")
+    processor_gsc.evaluate_model(testing_dataloader_gsc, use_early_stopping=False, epoch=-1)
+    ##################################
+
+    # model_to_evaluate.load_state_dict(torch.load(model_path_to_evaluate))
+    # evaluate_on_testing_set(model_to_evaluate, testing_dataloader, criterion_ctc, beam_decoder)
+
     if use_cuda:
         print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None) / 1e9, 'GB')
         print('Maximum GPU memory managed by the caching allocator: ',

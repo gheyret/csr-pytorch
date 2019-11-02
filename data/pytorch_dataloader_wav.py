@@ -11,7 +11,8 @@ from data.front_end_processing import logfbank
 from torch.utils.data import DataLoader
 import csv
 #from scipy.io import wavfile
-import soundfile as wavfile
+#import soundfile as wavfile
+import librosa
 import numpy
 import time
 import matplotlib.pyplot as plt
@@ -41,9 +42,7 @@ class Dataset(data.Dataset):
         self.nfilt = 70
         self.window_size = 0.02  # s
         self.step_size = 0.01  # s
-        self.expectedRows = self.nfilt
-        self.expectedCols = 99
-        self.samplerate = 16000
+        self.samplerate = 16000#22050
 
     def __len__(self):
         'Denotes the total number of samples'
@@ -54,8 +53,9 @@ class Dataset(data.Dataset):
 
         # ID contains the path to the wav file
         wav_path = self.wavfolder_path + file_name
-        test_sound, samplerate = wavfile.read(wav_path)
-        self.samplerate = samplerate
+        test_sound, samplerate = librosa.load(wav_path, sr=self.samplerate)
+        #Todo: Make sure it's upsampled to 22050 correctly
+        #self.samplerate = samplerate
         y = self.label_dict[file_name]
 
         test_sound = numpy.trim_zeros(test_sound, 'b')
