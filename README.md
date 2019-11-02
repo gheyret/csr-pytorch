@@ -16,10 +16,18 @@ ConvNet2 :  3.7%PER     0.177223        14.3M
 * The probability distribution is input to CTC for decoding and computing loss compared to true label sequence
 
 ---
+Librosa:  
+librosa.display.waveplot(wave, sr=SAMPLING_RATE)
+https://www.endpoint.com/blog/2019/01/08/speech-recognition-with-tensorflow
+---
 
 #**Datasets:**
 * Google speech commands (currently used) "../data/"
 * Generated dataset  (not yet implemented)
+https://voice.mozilla.org/en/datasets
+https://www.openslr.org/12/
+http://voxforge.org/
+https://storage.cloud.google.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz
 
 These require different dataloaders since the conversion from word to phoneme sequence is hard coded currently.
 It also requires a new model since the sample rate is different.
