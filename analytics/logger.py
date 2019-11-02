@@ -1,10 +1,8 @@
 from torch.utils.tensorboard import SummaryWriter
-import os
 import torch
-import sys
 
 class VisdomLogger(object):
-    def __init__(self, id, num_epochs):
+    def __init__(self, title, keys, num_epochs_init):
         from visdom import Visdom
         # print("python -m visdom.server")
         try:
@@ -12,25 +10,33 @@ class VisdomLogger(object):
         finally:
             print("Visdom server must be started, use: 'python -m visdom.server' in terminal")
 
-
-        self.opts = dict(title=id, ylabel='', xlabel='Batch', legend=['Loss', 'per'])
+        self.opts = dict(title=title, ylabel='', xlabel='Batch', legend=keys)
         self.viz_window = None
-        self.epochs = torch.arange(0, num_epochs)
+        self.epochs = torch.arange(0, num_epochs_init)
         self.visdom_plotter = True
-        self.epoch = 1
+        self.iteration = 1
+        self.keys = keys
         self.values = dict()
-        self.values["loss"] = []
-        self.values["per"] = []
-        self.losses = []
+        for key in keys:
+            self.values[key] = []
 
-    def update(self, value_loss, value_per):
-        self.values["loss"].append(value_loss)
-        self.values["per"].append(value_per)
-        # self.losses.append(value)
-        x_axis = torch.arange(0, self.epoch)
-        # x_axis = self.epochs[0:self.epoch]
-        y_axis = torch.stack((torch.tensor(self.values["loss"]),
-                              torch.tensor(self.values["per"])), dim=1)
+    def add_value(self, keys, input_values):
+        if type(keys) is list:
+            for i, key in enumerate(keys):
+                if not self.values[key]:
+                    self.values[key] = [input_values[i]]
+                else:
+                    self.values[key].append(input_values[i])
+        else:
+            if not self.values[keys]:
+                self.values[keys] =  [input_values]
+            else:
+                self.values[keys].append(input_values)
+
+    def update(self):
+        x_axis = torch.arange(0, self.iteration)
+        torch_list = [torch.tensor(self.values[key]) for key in self.keys if self.values[key]]
+        y_axis = torch.stack(torch_list, dim=1)
         self.viz_window = self.viz.line(
             X=x_axis,
             Y=y_axis,
@@ -38,7 +44,7 @@ class VisdomLogger(object):
             win=self.viz_window,
             update='replace' if self.viz_window else None
         )
-        self.epoch += 1
+        self.iteration += 1
 
 
 class TensorboardLogger(object):

@@ -53,6 +53,13 @@ class EarlyStopping:
                       .format(self.lowest_loss, loss, self.delta, self.validation_counter, self.patience))
             if self.validation_counter >= self.patience:
                 self.stop_training_early = True
+    def reset(self):
+        self.end_early_counter = 0
+        self.stop_program = False
+        self.stop_training_early = False
+        self.lowest_loss = None
+        self.lowest_loss_prev = numpy.inf
+        self.validation_counter = 0
 
     def save_model(self, model):
         """
