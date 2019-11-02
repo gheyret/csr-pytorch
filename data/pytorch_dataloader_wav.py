@@ -32,7 +32,11 @@ class Dataset(data.Dataset):
         'Initialization'
         self.list_ids = list_ids
         self.label_dict = label_dict
+
+        self.wavfolder_is_dict = False
         self.wavfolder_path = wavfolder_path
+        if type(self.wavfolder_path) is dict:
+            self.wavfolder_is_dict = True
         self.transformData = transforms.Compose(
             [transforms.ToTensor(),
              transforms.Normalize(mean=[0.0],
@@ -42,7 +46,7 @@ class Dataset(data.Dataset):
         self.nfilt = 70
         self.window_size = 0.02  # s
         self.step_size = 0.01  # s
-        self.samplerate = 16000#22050
+        self.samplerate = 22050
 
     def __len__(self):
         'Denotes the total number of samples'
@@ -51,11 +55,17 @@ class Dataset(data.Dataset):
     def __getitem__(self, index):
         file_name = self.list_ids[index]
 
-        # ID contains the path to the wav file
-        wav_path = self.wavfolder_path + file_name
+        if self.wavfolder_is_dict:
+            start_idx = 0
+            for key in self.wavfolder_path.keys():
+                if (index >= start_idx) & (index < key):
+                    wav_path = self.wavfolder_path[key] + file_name
+                start_idx = key
+        else:
+            wav_path = self.wavfolder_path + file_name
+
+
         test_sound, samplerate = librosa.load(wav_path, sr=self.samplerate)
-        #Todo: Make sure it's upsampled to 22050 correctly
-        #self.samplerate = samplerate
         y = self.label_dict[file_name]
 
         test_sound = numpy.trim_zeros(test_sound, 'b')

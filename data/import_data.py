@@ -2,6 +2,21 @@ import os
 import csv
 
 
+def concat_datasets(list_id_first, list_id_second, label_dict_first, label_dict_second, wav_path_first, wav_path_second):
+    n_samples_first = len(list_id_first)
+    n_samples_second = len(list_id_second) + n_samples_first
+    list_id = list_id_first.copy()
+    list_id.extend(list_id_second)
+    label_dict = label_dict_first.copy()
+    label_dict.update(label_dict_second)
+    if type(wav_path_first) is dict:
+        wav_path = wav_path_first.copy()
+        wav_path[n_samples_second] = wav_path_second
+    else:
+        wav_path = {n_samples_first: wav_path_first, n_samples_second: wav_path_second}
+    return list_id, label_dict, wav_path
+    #Todo: Make sure input of wav_path_first of type dict is handled so that it can be concat several times
+    #Todo: make sure dataloader uses the correct path. Path determined by checking if idx is lower than current key but higher than previous
 
 def get_phoneme_index_dict():
     label_list = ['_', ' ', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B',
