@@ -7,13 +7,16 @@
 Quick profiling, early stopping patience = 1. i.e this table serves as an indication
 but the best results could probably improve.  
 
-          PER                  GSC-test   GEN-test      
-          1x Gen data 22050hz: 0.9861     0.0000    gen22050.pt
-          1x GSC data 22050hz: 0.0543     0.1897    gsc22050.pt   
-          5x Gen data 22050hz: 0.9175     0.0000    gen22050x5.pt
-          mix training 22050hz:0.0623     0.0000    mix.pt
-          1x Gen data 16khz:   0.9305     0.0081    gen16000.pt
-          1x GSC data 16khz:   0.0594     0.3504    gsc16000.pt
+          PER                       GSC-test   GEN-test      
+          1x Gen data 22050hz:      0.9861     0.0000    gen22050.pt
+          5x Gen data 22050hz:      0.9175     0.0000    gen22050x5.pt   
+          1x Gen data 16khz:        0.9305     0.0081    gen16000.pt 
+          mix training 22050hz:     0.0623     0.0000    mix.pt      
+          1x GSC data 22050hz:      0.0543     0.1897    gsc22050.pt   
+          1x GSC data 16khz:        0.0594     0.3504    gsc16000.pt
+
+
+
         
 
 ---
