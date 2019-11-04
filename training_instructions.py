@@ -19,7 +19,7 @@ parser.add_argument('--end_early_batches', default=21)
 parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
 parser.add_argument('--print_frequency', default=20)
-parser.add_argument('--validation_patience', default=1)
+parser.add_argument('--validation_patience', default=2)
 parser.add_argument('--learning_rate', default=1e-3)
 parser.add_argument('--number_of_workers', default=8)
 parser.add_argument('--batch_size', default=400)
@@ -58,25 +58,18 @@ if __name__ == "__main__":
     tensorboard_logger = TensorboardLogger()
 
     # Dataloaders:
-    #   Train:
+    # Train
     train_path = args.generated_path + "train/"
-    list_id_train_first, label_dict_train_first = import_data_generated(train_path)
-    list_id_train_second = csv_to_list(args.gsc_path + "list_id_train.csv")
-    label_dict_train_second = csv_to_dict(args.gsc_path + "dict_labels_train.csv")
-    list_id_train, label_dict_train, wav_path_train = concat_datasets(list_id_train_first, list_id_train_second, label_dict_train_first,
-                                                    label_dict_train_second, train_path, args.gsc_path)
-    training_set = Dataset(list_ids=list_id_train, wavfolder_path=wav_path_train, label_dict=label_dict_train)
-    training_dataloader_combined = AudioDataLoader(training_set, **params)
+    list_id_train, label_dict_train = import_data_generated(train_path)
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=train_path, label_dict=label_dict_train)
+    training_dataloader_gen = AudioDataLoader(training_set, **params)
 
-    #   Validation:
+    # Validation
     validation_path = args.generated_path + "validation/"
-    list_id_validation_first, label_dict_validation_first = import_data_generated(validation_path)
-    list_id_validation_second = csv_to_list(args.gsc_path + "list_id_validation.csv")
-    label_dict_validation_second = csv_to_dict(args.gsc_path + "dict_labels_validation.csv")
-    list_id_validation, label_dict_validation, wav_path_validation = concat_datasets(list_id_validation_first, list_id_validation_second, label_dict_validation_first,
-                                                    label_dict_validation_second, validation_path, args.gsc_path)
-    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=wav_path_validation, label_dict=label_dict_validation)
-    validation_dataloader_combined = AudioDataLoader(validation_set, **params)
+    list_id_validation, label_dict_validation = import_data_generated(validation_path)
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=validation_path,
+                             label_dict=label_dict_validation)
+    validation_dataloader_gen = AudioDataLoader(validation_set, **params)
 
     #   Testing:
     list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
@@ -93,7 +86,7 @@ if __name__ == "__main__":
     # Processor:
     visdom_logger_train_gen = VisdomLogger("Training_gen", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
 
-    processor_gen = InstructionsProcessor(model, training_dataloader_combined, validation_dataloader_combined,
+    processor_gen = InstructionsProcessor(model, training_dataloader_gen, validation_dataloader_gen,
                                           args.max_training_epochs,
                                           args.batch_size, args.learning_rate, use_cuda, early_stopper,
                                           tensorboard_logger,
@@ -101,7 +94,7 @@ if __name__ == "__main__":
     print("--------Calling train_model()")
     processor_gen.print_cuda_information(use_cuda, device)
     processor_gen.train_model(visdom_logger_train_gen, verbose=True)
-    processor_gen.save_model("./trained_models/mix.pt")
+    processor_gen.save_model("./trained_models/gen_2w.pt")
     # processor_gen.load_model("./trained_models/gen16000.pt")
 
     print("Evaluating on generated data:")

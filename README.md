@@ -11,7 +11,9 @@ but the best results could probably improve.
           1x Gen data 22050hz:      0.9861     0.0000    gen22050.pt
           5x Gen data 22050hz:      0.9175     0.0000    gen22050x5.pt   
           1x Gen data 16khz:        0.9305     0.0081    gen16000.pt 
-          mix training 22050hz:     0.0623     0.0000    mix.pt      
+          comb training 22050hz:    0.0623     0.0000    mix.pt
+          2w mix voice 22050hz:     1.0022     0.0006    gen_2w.pt   
+          1x gen 2w:                0.9779     0.0000         
           1x GSC data 22050hz:      0.0543     0.1897    gsc22050.pt   
           1x GSC data 16khz:        0.0594     0.3504    gsc16000.pt
 

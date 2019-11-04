@@ -19,11 +19,11 @@ def concat_datasets(list_id_first, list_id_second, label_dict_first, label_dict_
     #Todo: make sure dataloader uses the correct path. Path determined by checking if idx is lower than current key but higher than previous
 
 def get_phoneme_index_dict():
-    label_list = ['_', ' ', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B',
+    label_list = ['_', '-', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B',
                   'CH', 'D', 'DH', 'EH', 'EHR', 'ER', 'EY','F', 'G', 'H', 'IH',
                   'IY', 'IYR', 'JH', 'K', 'L', 'M', 'N', 'NG', 'O', 'OW',
                   'OY', 'P', 'R', 'S', 'SH', 'T', 'TH', 'UH', 'UHR', 'UW',
-                  'V', 'W', 'Y', 'Z', 'ZH']
+                  'V', 'W', 'Y', 'Z', 'ZH'] # - is space character
     phoneme_index_dict = dict()
     index_phoneme_dict = dict()
     for i, x in enumerate(label_list):
