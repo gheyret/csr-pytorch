@@ -18,16 +18,34 @@ but the best results could probably improve.
           1x GSC data 16khz:        0.0594     0.3504    gsc16000.pt
           
   
-Gen data: Mix of 3 voices, increased ranges of parameter values. 0.5x amount of GSC  
+Gen data: Mix of 3 voices, increased ranges of parameter values. 0.5x amount of GSC. Half of samples are single words, other half are two words.  
 
           Trained on GSC 22khz:     0.0451     0.5294
                                     0.0462     0.5312
                                     0.0436     0.5419
+                                    
           Trained on both 22khz:    0.0565     0.0022
                                     0.0598     0.0036
                                     0.0601     0.0030
-        
+                                    
+          Trained on partial 50%    0.0602     0.6056
+          gsc 22khz
+          
+          Trained on partial 50%    0.0684     0.0015
+          gsc 22khz and generated
+          with mix voices 1-2w
+          validated only on gsc
+          
+          Trained on partial 50%    0.0729     0.0036
+          gsc 22khz and generated
+          with mix voices 1-2w
+          validated on comb
 
+          Trained on partial 50%    0.0693     0.0005
+          gsc 22khz and generated
+          with hazel 1w
+          validated on comb
+          
 ---
              GSC        Val Loss        Params
 ConvNet2 :  3.7%PER     0.177223        14.3M  
@@ -51,9 +69,15 @@ https://www.endpoint.com/blog/2019/01/08/speech-recognition-with-tensorflow
 #**Datasets:**
 * Google speech commands (currently used) "../data/"
 * Generated dataset  (not yet implemented)  
+Common voice:  
 https://voice.mozilla.org/en/datasets  
+LibriSpeech:  
 https://www.openslr.org/12/  
+VoxForge:  
 http://voxforge.org/  
+List:  
+https://github.com/robmsmt/ASR_Audio_Data_Links  
+
 
 GSC:  
 https://github.com/tensorflow/docs/blob/master/site/en/r1/tutorials/sequences/audio_recognition.md  

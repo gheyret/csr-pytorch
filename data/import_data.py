@@ -31,7 +31,7 @@ def get_phoneme_index_dict():
         index_phoneme_dict[i] = x
     return phoneme_index_dict, index_phoneme_dict
 
-def import_data_generated(dataset_path, verbose=False):
+def import_data_generated(dataset_path, verbose=False, train_data_partition_size=0.0):
     '''
 
     :param dataset_path: dataset_path directs to the folder containing the wav samples
@@ -125,9 +125,10 @@ def encode_labels_gsc(word_id, phoneme_index_dict):
     return phonetic_id_list
 
 
-def import_data_gsc(dataset_path, verbose=False):
+def import_data_gsc(dataset_path, verbose=False, train_data_partition_size=0.0):
     '''
 
+    :param train_data_partition_size:
     :param dataset_path: Path to the GSC file structure containing the 3 txt files and folders with wav samples.
     :param verbose:
     :return:
@@ -172,6 +173,8 @@ def import_data_gsc(dataset_path, verbose=False):
     total = 0
     phoneme_index_dict, _ = get_phoneme_index_dict()
 
+    import random
+
     for x in sub_folder_list:
         # get all the wave files
         all_files = [x + '/' + y for y in os.listdir(dataset_path + x) if '.wav' in y]
@@ -183,8 +186,10 @@ def import_data_gsc(dataset_path, verbose=False):
             elif file_name in validation_names:
                 validation_label[file_name] = label_list
             else:
-                train_names.append(file_name)
-                train_label[file_name] = label_list
+                r = random.uniform(0, 1)
+                if r > train_data_partition_size:
+                    train_names.append(file_name)
+                    train_label[file_name] = label_list
 
         # show file counts
         if verbose: print('count: %d : %s' % (len(all_files), x))

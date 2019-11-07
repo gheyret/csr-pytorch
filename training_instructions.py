@@ -2,7 +2,7 @@
 from analytics.logger import TensorboardLogger, VisdomLogger
 from early_stopping import EarlyStopping
 from data.pytorch_dataloader_wav import Dataset, AudioDataLoader
-from data.import_data import import_data_generated, concat_datasets, csv_to_list, csv_to_dict
+from data.import_data import import_data_generated, import_data_gsc, concat_datasets, csv_to_list, csv_to_dict
 import torch
 from cnn_model import ConvNet2 as Net
 from instructions_processor import InstructionsProcessor
@@ -58,19 +58,21 @@ if __name__ == "__main__":
     tensorboard_logger = TensorboardLogger()
 
     # Dataloaders:
-    #   Train:
+
+    # DATALOADERS GSC:
+
     # Train
-    train_path = args.generated_path + "train/"
-    list_id_train, label_dict_train = import_data_generated(train_path)
-    training_set = Dataset(list_ids=list_id_train, wavfolder_path=train_path, label_dict=label_dict_train)
-    training_dataloader_gen = AudioDataLoader(training_set, **params)
+    list_id_train = csv_to_list(args.gsc_path + "list_id_train.csv")
+    label_dict_train = csv_to_dict(args.gsc_path + "dict_labels_train.csv")
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=args.gsc_path, label_dict=label_dict_train)
+    training_dataloader_gsc = AudioDataLoader(training_set, **params)
 
     # Validation
-    validation_path = args.generated_path + "validation/"
-    list_id_validation, label_dict_validation = import_data_generated(validation_path)
-    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=validation_path,
+    list_id_validation = csv_to_list(args.gsc_path + "list_id_validation.csv")
+    label_dict_validation = csv_to_dict(args.gsc_path + "dict_labels_validation.csv")
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=args.gsc_path,
                              label_dict=label_dict_validation)
-    validation_dataloader_gen = AudioDataLoader(validation_set, **params)
+    validation_dataloader_gsc = AudioDataLoader(validation_set, **params)
 
     #   Testing:
     list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
@@ -86,9 +88,9 @@ if __name__ == "__main__":
 
     # Processor:
     #visdom_logger_train_gen = VisdomLogger("Training_gen", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
-    visdom_logger_train_gen = VisdomLogger("Training_combined", ["loss_train", "PER_train"], 10)
+    visdom_logger_train_gen = VisdomLogger("Training_comb_partial_val_both", ["loss_train", "PER_train"], 10)
 
-    processor_gen = InstructionsProcessor(model, training_dataloader_gen, validation_dataloader_gen,
+    processor_gen = InstructionsProcessor(model, training_dataloader_gsc, validation_dataloader_gsc,
                                           args.max_training_epochs,
                                           args.batch_size, args.learning_rate, use_cuda, early_stopper,
                                           tensorboard_logger,
