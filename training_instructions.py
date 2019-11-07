@@ -19,7 +19,7 @@ parser.add_argument('--end_early_batches', default=21)
 parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
 parser.add_argument('--print_frequency', default=20)
-parser.add_argument('--validation_patience', default=2)
+parser.add_argument('--validation_patience', default=3)
 parser.add_argument('--learning_rate', default=1e-3)
 parser.add_argument('--number_of_workers', default=8)
 parser.add_argument('--batch_size', default=400)
@@ -58,6 +58,7 @@ if __name__ == "__main__":
     tensorboard_logger = TensorboardLogger()
 
     # Dataloaders:
+    #   Train:
     # Train
     train_path = args.generated_path + "train/"
     list_id_train, label_dict_train = import_data_generated(train_path)
@@ -84,7 +85,8 @@ if __name__ == "__main__":
 
 
     # Processor:
-    visdom_logger_train_gen = VisdomLogger("Training_gen", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
+    #visdom_logger_train_gen = VisdomLogger("Training_gen", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
+    visdom_logger_train_gen = VisdomLogger("Training_combined", ["loss_train", "PER_train"], 10)
 
     processor_gen = InstructionsProcessor(model, training_dataloader_gen, validation_dataloader_gen,
                                           args.max_training_epochs,
@@ -92,10 +94,10 @@ if __name__ == "__main__":
                                           tensorboard_logger,
                                           print_frequency=args.print_frequency)
     print("--------Calling train_model()")
-    processor_gen.print_cuda_information(use_cuda, device)
+    #processor_gen.print_cuda_information(use_cuda, device)
     processor_gen.train_model(visdom_logger_train_gen, verbose=True)
-    processor_gen.save_model("./trained_models/gen_2w.pt")
-    # processor_gen.load_model("./trained_models/gen16000.pt")
+    #processor_gen.save_model("./trained_models/gen_2w.pt")
+    #processor_gen.load_model("./trained_models/checkpoint.pt")
 
     print("Evaluating on generated data:")
     processor_gen.evaluate_model(testing_dataloader_gen, use_early_stopping=False, epoch=-1)

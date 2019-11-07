@@ -16,9 +16,16 @@ but the best results could probably improve.
           1x gen 2w:                0.9779     0.0000         
           1x GSC data 22050hz:      0.0543     0.1897    gsc22050.pt   
           1x GSC data 16khz:        0.0594     0.3504    gsc16000.pt
+          
+  
+Gen data: Mix of 3 voices, increased ranges of parameter values. 0.5x amount of GSC  
 
-
-
+          Trained on GSC 22khz:     0.0451     0.5294
+                                    0.0462     0.5312
+                                    0.0436     0.5419
+          Trained on both 22khz:    0.0565     0.0022
+                                    0.0598     0.0036
+                                    0.0601     0.0030
         
 
 ---

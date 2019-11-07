@@ -50,7 +50,7 @@ class InstructionsProcessor(object):
         return losses, edit_distances
 
     def process_batch_training(self, local_data, epoch, batch_i, n_training_batches, train_losses, edit_distances,
-                               verbose=False):
+                               verbose=False, visdom_logger_train=None):
         local_batch, local_targets, local_input_percentages, local_target_lengths = local_data
         input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
 
@@ -78,6 +78,9 @@ class InstructionsProcessor(object):
             evaluated_label = decoded_sequence[0][0][0:out_seq_len[0][0]]
             true_label = local_targets[0, :local_target_lengths[0]]
 
+            if visdom_logger_train is not None:
+                visdom_logger_train.add_value(["loss_train", "PER_train"], [batch_loss, edit_distance])
+                visdom_logger_train.update()
             train_losses.append(batch_loss)
             edit_distances.append(edit_distance)
 
@@ -112,20 +115,21 @@ class InstructionsProcessor(object):
             for batch_i, (local_data) in enumerate(self.training_dataloader, 0):
                 train_losses, train_edit_distances = self.process_batch_training(local_data, epoch, batch_i,
                                                                                  n_training_batches, train_losses,
-                                                                                 train_edit_distances, verbose)
+                                                                                 train_edit_distances, verbose, visdom_logger_train)
+
                 self.early_stopping.exit_program_early()
                 if self.early_stopping.stop_program:
                     break
             train_loss = numpy.average(train_losses)
             train_edit_distance = numpy.average(train_edit_distances)
-            visdom_logger_train.add_value(["loss_train", "PER_train"], [train_loss, train_edit_distance])
+            # visdom_logger_train.add_value(["loss_train", "PER_train"], [train_loss, train_edit_distance])
             if self.early_stopping.stop_program:
                 break
 
             # Validation
             self.evaluate_model(self.validation_dataloader, use_early_stopping=True, epoch=epoch,
-                                visdom_logger=visdom_logger_train)
-            visdom_logger_train.update()
+                                visdom_logger=None)
+            #visdom_logger_train.update()
             if self.early_stopping.stop_training_early:
                 print("Early stopping")
                 break
