@@ -2,13 +2,16 @@
 from analytics.logger import TensorboardLogger, VisdomLogger
 from early_stopping import EarlyStopping
 from data.pytorch_dataloader_wav import Dataset, AudioDataLoader
-from data.import_data import import_data_generated, import_data_gsc, concat_datasets, csv_to_list, csv_to_dict
+from data.import_data import import_data_generated, import_data_libri_speech, import_data_gsc, concat_datasets, \
+    randomly_partition_data, csv_to_list, csv_to_dict
 import torch
 from cnn_model import ConvNet2 as Net
 from instructions_processor import InstructionsProcessor
 import argparse
 
 parser = argparse.ArgumentParser(description="CSR Pytorch")
+parser.add_argument('--libri_path', default='../data/LibriSpeech/')
+parser.add_argument('--vocab_path', default='../data/BritishEnglish_Reduced.xml')
 parser.add_argument('--gsc_path', default='../data/GoogleSpeechCommands/wav_format/')
 parser.add_argument('--generated_path', default='../data/GoogleSpeechCommands/generated/')
 parser.add_argument('--continue_training', default=False)
@@ -18,11 +21,11 @@ parser.add_argument('--end_early_for_profiling', default=False)
 parser.add_argument('--end_early_batches', default=21)
 parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
-parser.add_argument('--print_frequency', default=20)
+parser.add_argument('--print_frequency', default=1)
 parser.add_argument('--validation_patience', default=3)
 parser.add_argument('--learning_rate', default=1e-3)
 parser.add_argument('--number_of_workers', default=8)
-parser.add_argument('--batch_size', default=400)
+parser.add_argument('--batch_size', default=100)
 parser.add_argument('--early_stopping_delta', default=0.001)
 
 if __name__ == "__main__":
@@ -59,52 +62,47 @@ if __name__ == "__main__":
 
     # Dataloaders:
 
-    # DATALOADERS GSC:
+    # DATALOADERS LibriSpeech:
 
-    # Train
-    list_id_train = csv_to_list(args.gsc_path + "list_id_train.csv")
-    label_dict_train = csv_to_dict(args.gsc_path + "dict_labels_train.csv")
-    training_set = Dataset(list_ids=list_id_train, wavfolder_path=args.gsc_path, label_dict=label_dict_train)
-    training_dataloader_gsc = AudioDataLoader(training_set, **params)
+    # Train & Validation
+    libri_speech_dev_path = args.libri_path + "dev-clean/"
+    list_id, label_dict, _ = import_data_libri_speech(dataset_path=libri_speech_dev_path, vocabulary_path=args.vocab_path)
+    list_id_train, list_id_validation, label_dict_train, label_dict_validation = \
+        randomly_partition_data(0.7, list_id, label_dict)
 
-    # Validation
-    list_id_validation = csv_to_list(args.gsc_path + "list_id_validation.csv")
-    label_dict_validation = csv_to_dict(args.gsc_path + "dict_labels_validation.csv")
-    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=args.gsc_path,
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=libri_speech_dev_path,
+                           label_dict=label_dict_train)
+    training_dataloader_ls = AudioDataLoader(training_set, **params)
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_dev_path,
                              label_dict=label_dict_validation)
-    validation_dataloader_gsc = AudioDataLoader(validation_set, **params)
+    validation_dataloader_ls = AudioDataLoader(validation_set, **params)
 
     #   Testing:
-    list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
-    label_dict_test = csv_to_dict(args.gsc_path + "dict_labels_test.csv")
-    testing_set = Dataset(list_ids=list_id_test, wavfolder_path=args.gsc_path, label_dict=label_dict_test)
-    testing_dataloader_gsc = AudioDataLoader(testing_set, **params)
+    libri_speech_test_path = args.libri_path + "test-clean/"
+    list_id_test, label_dict_test, _ = import_data_libri_speech(dataset_path=libri_speech_test_path,
+                                                      vocabulary_path=args.vocab_path)
+    testing_set = Dataset(list_ids=list_id_test, wavfolder_path=libri_speech_test_path, label_dict=label_dict_test)
+    testing_dataloader_ls = AudioDataLoader(testing_set, **params)
 
-    test_path = args.generated_path + "test/"
-    list_id_test, label_dict_test = import_data_generated(test_path)
-    testing_set = Dataset(list_ids=list_id_test, wavfolder_path=test_path, label_dict=label_dict_test)
-    testing_dataloader_gen = AudioDataLoader(testing_set, **params)
 
 
     # Processor:
     #visdom_logger_train_gen = VisdomLogger("Training_gen", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
-    visdom_logger_train_gen = VisdomLogger("Training_comb_partial_val_both", ["loss_train", "PER_train"], 10)
+    visdom_logger_train_ls = VisdomLogger("Training LS dev", ["loss_train", "PER_train"], 10)
 
-    processor_gen = InstructionsProcessor(model, training_dataloader_gsc, validation_dataloader_gsc,
+    processor_gen = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,
                                           args.max_training_epochs,
                                           args.batch_size, args.learning_rate, use_cuda, early_stopper,
                                           tensorboard_logger,
                                           print_frequency=args.print_frequency)
     print("--------Calling train_model()")
-    #processor_gen.print_cuda_information(use_cuda, device)
-    processor_gen.train_model(visdom_logger_train_gen, verbose=True)
+    processor_gen.print_cuda_information(use_cuda, device)
+    processor_gen.train_model(visdom_logger_train_ls, verbose=True)
     #processor_gen.save_model("./trained_models/gen_2w.pt")
     #processor_gen.load_model("./trained_models/checkpoint.pt")
 
-    print("Evaluating on generated data:")
-    processor_gen.evaluate_model(testing_dataloader_gen, use_early_stopping=False, epoch=-1)
-    print("Evaluating on recorded data:")
-    processor_gen.evaluate_model(testing_dataloader_gsc, use_early_stopping=False, epoch=-1)
+    print("Evaluating on test data:")
+    processor_gen.evaluate_model(testing_dataloader_ls, use_early_stopping=False, epoch=-1)
 
 
 

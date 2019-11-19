@@ -46,7 +46,7 @@ class Dataset(data.Dataset):
         self.nfilt = 70
         self.window_size = 0.02  # s
         self.step_size = 0.01  # s
-        self.samplerate = 22050
+        self.samplerate = 16000
 
     def __len__(self):
         'Denotes the total number of samples'
