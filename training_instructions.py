@@ -12,20 +12,21 @@ import argparse
 parser = argparse.ArgumentParser(description="CSR Pytorch")
 parser.add_argument('--libri_path', default='../data/LibriSpeech/')
 parser.add_argument('--vocab_path', default='../data/BritishEnglish_Reduced.xml')
+parser.add_argument('--vocab_addition_path', default='../data/LibriSpeech/missing_words.dict')
 parser.add_argument('--gsc_path', default='../data/GoogleSpeechCommands/wav_format/')
 parser.add_argument('--generated_path', default='../data/GoogleSpeechCommands/generated/')
 parser.add_argument('--continue_training', default=False)
 parser.add_argument('--continue_training_model_path', default='./trained_models/checkpoint.pt')
 parser.add_argument('--early_stopping_checkpoint_path', default='./trained_models/checkpoint.pt')
 parser.add_argument('--end_early_for_profiling', default=False)
-parser.add_argument('--end_early_batches', default=21)
+parser.add_argument('--end_early_batches', default=101)
 parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
-parser.add_argument('--print_frequency', default=1)
+parser.add_argument('--print_frequency', default=20)
 parser.add_argument('--validation_patience', default=3)
 parser.add_argument('--learning_rate', default=1e-3)
 parser.add_argument('--number_of_workers', default=8)
-parser.add_argument('--batch_size', default=100)
+parser.add_argument('--batch_size', default=50)
 parser.add_argument('--early_stopping_delta', default=0.001)
 
 if __name__ == "__main__":
@@ -62,20 +63,50 @@ if __name__ == "__main__":
 
     # Dataloaders:
 
+    # DATALOADERS GSC:
+    # Train
+    list_id_train = csv_to_list(args.gsc_path + "list_id_train.csv")
+    label_dict_train = csv_to_dict(args.gsc_path + "dict_labels_train.csv")
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=args.gsc_path, label_dict=label_dict_train)
+    training_dataloader_gsc = AudioDataLoader(training_set, **params)
+
+    # Validation
+    list_id_validation = csv_to_list(args.gsc_path + "list_id_validation.csv")
+    label_dict_validation = csv_to_dict(args.gsc_path + "dict_labels_validation.csv")
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=args.gsc_path,
+                             label_dict=label_dict_validation)
+    validation_dataloader_gsc = AudioDataLoader(validation_set, **params)
+
+    # Test
+    list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
+    label_dict_test = csv_to_dict(args.gsc_path + "dict_labels_test.csv")
+    testing_set = Dataset(list_ids=list_id_test, wavfolder_path=args.gsc_path, label_dict=label_dict_test)
+    testing_dataloader_gsc = AudioDataLoader(testing_set, **params)
+
+
     # DATALOADERS LibriSpeech:
-
     # Train & Validation
-    libri_speech_dev_path = args.libri_path + "dev-clean/"
-    list_id, label_dict, _ = import_data_libri_speech(dataset_path=libri_speech_dev_path, vocabulary_path=args.vocab_path)
-    list_id_train, list_id_validation, label_dict_train, label_dict_validation = \
-        randomly_partition_data(0.7, list_id, label_dict)
+    libri_speech_dev_path_1 = args.libri_path + "train-clean-100/"  # "dev-clean/"
+    libri_speech_dev_path_2 = args.libri_path + "train-clean-360/"  # "dev-clean/"
 
-    training_set = Dataset(list_ids=list_id_train, wavfolder_path=libri_speech_dev_path,
+    list_id_1, label_dict_1, missing_words_1 = import_data_libri_speech(dataset_path=libri_speech_dev_path_1, vocabulary_path=args.vocab_path, vocabulary_path_addition=args.vocab_addition_path)
+    list_id_2, label_dict_2, missing_words_2 = import_data_libri_speech(dataset_path=libri_speech_dev_path_2, vocabulary_path=args.vocab_path, vocabulary_path_addition=args.vocab_addition_path)
+
+    list_id_train, label_dict_train, wav_path_train = concat_datasets(list_id_1, list_id_2,
+                                                    label_dict_1, label_dict_2,
+                                                    libri_speech_dev_path_1, libri_speech_dev_path_2)
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=wav_path_train,
                            label_dict=label_dict_train)
     training_dataloader_ls = AudioDataLoader(training_set, **params)
-    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_dev_path,
+
+
+    libri_speech_path_validation = args.libri_path + "dev-clean/"  # "dev-clean/"
+    list_id_validation, label_dict_validation, missing_words_validation = import_data_libri_speech(
+        dataset_path=libri_speech_path_validation, vocabulary_path=args.vocab_path)
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_path_validation,
                              label_dict=label_dict_validation)
     validation_dataloader_ls = AudioDataLoader(validation_set, **params)
+
 
     #   Testing:
     libri_speech_test_path = args.libri_path + "test-clean/"
@@ -87,23 +118,29 @@ if __name__ == "__main__":
 
 
     # Processor:
-    #visdom_logger_train_gen = VisdomLogger("Training_gen", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
+    # ["loss_train", "PER_train", "loss_val", "PER_val"]
     visdom_logger_train_ls = VisdomLogger("Training LS dev", ["loss_train", "PER_train"], 10)
 
-    processor_gen = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,
+    processor_ls = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,
                                           args.max_training_epochs,
                                           args.batch_size, args.learning_rate, use_cuda, early_stopper,
                                           tensorboard_logger,
                                           print_frequency=args.print_frequency)
+
     print("--------Calling train_model()")
-    processor_gen.print_cuda_information(use_cuda, device)
-    processor_gen.train_model(visdom_logger_train_ls, verbose=True)
-    #processor_gen.save_model("./trained_models/gen_2w.pt")
-    #processor_gen.load_model("./trained_models/checkpoint.pt")
+    processor_ls.load_model("./trained_models/LS_base.pt")
+    #processor_ls.save_model("./trained_models/LS_base.pt")
+    processor_ls.train_model(visdom_logger_train_ls, verbose=True)
+    processor_ls.save_model("./trained_models/LS_base.pt")
 
     print("Evaluating on test data:")
-    processor_gen.evaluate_model(testing_dataloader_ls, use_early_stopping=False, epoch=-1)
+    processor_ls.evaluate_model(testing_dataloader_ls, use_early_stopping=False, epoch=-1)
 
+    print(len(missing_words_1))
+    
+    print(len(list_id_1))
+    print(len(missing_words_2))
+    print(len(list_id_2))
 
 
     if use_cuda:

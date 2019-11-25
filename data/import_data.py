@@ -35,23 +35,33 @@ def get_phoneme_index_dict():
     return phoneme_index_dict, index_phoneme_dict
 
 
-def get_word_phoneme_dictionary(vocabulary_path):
-    eng_ipa_vocabulary = minidom.parse(vocabulary_path)
-    term_nodes = eng_ipa_vocabulary.getElementsByTagName("DictionaryTerm")
-    word_nodes = eng_ipa_vocabulary.getElementsByTagName("Word")
+def get_word_phoneme_dictionary(vocabulary_path, xml=True):
+    if xml:
+        eng_ipa_vocabulary = minidom.parse(vocabulary_path)
+        term_nodes = eng_ipa_vocabulary.getElementsByTagName("DictionaryTerm")
+        word_nodes = eng_ipa_vocabulary.getElementsByTagName("Word")
 
-    word_phoneme = dict()
-    for i, word_node, in enumerate(word_nodes):
-        word = word_node.childNodes[0].data
+        word_phoneme = dict()
+        for i, word_node, in enumerate(word_nodes):
+            word = word_node.childNodes[0].data
 
-        attribute_nodes = term_nodes[i].childNodes
-        phoneme_nodes = attribute_nodes[4].childNodes
-        phoneme_list = []
-        for phoneme_node in phoneme_nodes:
-            phoneme_str = phoneme_node.childNodes[0].data
-            phoneme_list.append(phoneme_str)
-        word_phoneme[word] = phoneme_list
-    return word_phoneme
+            attribute_nodes = term_nodes[i].childNodes
+            phoneme_nodes = attribute_nodes[4].childNodes
+            phoneme_list = []
+            for phoneme_node in phoneme_nodes:
+                phoneme_str = phoneme_node.childNodes[0].data
+                phoneme_list.append(phoneme_str)
+            word_phoneme[word] = phoneme_list
+        return word_phoneme
+    else:
+        word_phoneme = dict()
+        with open(vocabulary_path, 'r') as file:
+            lines = file.readlines()
+            for x in lines:
+                x = x.rstrip("\n")
+                word_list = x.split(" ")
+                word_phoneme[word_list[0]] = word_list[1:]
+        return word_phoneme
 
 
 def import_data_generated(dataset_path, verbose=False, train_data_partition_size=0.0):
@@ -261,13 +271,32 @@ def csv_to_dict(path_to_csv):
 
 
 def check_similiar_words(word, word_phoneme_dict, verbose):
+    '''
+    if word.endswith("less"):
+        test_word = word[:-4]
+        if test_word in word_phoneme_dict:
+            if verbose:
+                print(test_word + " exist, using that instead ++++++++++")
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
+            phoneme_list_word.extend(["L", "EH", "S"])
+            return True, phoneme_list_word
+
+    if word.endswith("ous"):
+        test_word = word[:-3]
+        if test_word in word_phoneme_dict:
+            if verbose:
+                print(test_word + " exist, using that instead ++++++++++")
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
+            phoneme_list_word.extend(["R", "AX", "S"])
+            return True, phoneme_list_word
+    '''
     # If word ends with "ed" can try to remove this and append the phoneme for "ed" - "D" (smile/smiled)
     if word.endswith("ed"):
         test_word = word[:-2]
         if test_word in word_phoneme_dict:
             if verbose:
                 print(test_word + " exist, using that instead ++++++++++")
-            phoneme_list_word = word_phoneme_dict[test_word]
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
             phoneme_list_word.append("D")
             return True, phoneme_list_word
 
@@ -276,7 +305,7 @@ def check_similiar_words(word, word_phoneme_dict, verbose):
         if test_word in word_phoneme_dict:
             if verbose:
                 print(test_word + " exist, using that instead ++++++++++")
-            phoneme_list_word = word_phoneme_dict[test_word]
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
             phoneme_list_word.append("D")
             return True, phoneme_list_word
 
@@ -286,9 +315,10 @@ def check_similiar_words(word, word_phoneme_dict, verbose):
         if test_word in word_phoneme_dict:
             if verbose:
                 print(test_word + " exist, using that instead ++++++++++")
-            phoneme_list_word = word_phoneme_dict[test_word]
-            phoneme_list_word.append("Z")
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
+            phoneme_list_word.append("S")
             return True, phoneme_list_word
+
     return False, []
 
 
@@ -296,9 +326,8 @@ def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, 
                                   phoneme_index_dict, verbose):
     with open(txt_file, 'r') as file:
         lines = file.readlines()
-        index = 0
         for x in lines:
-            x = x.replace("'", "")
+            #x = x.replace("'", "")
             x = x.rstrip("\n")
             word_list = x.split(" ")
 
@@ -308,14 +337,12 @@ def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, 
 
             for word in word_list[1:]:
                 word = word.lower()
-
                 if word in word_phoneme_dict:
                     phoneme_list_word = word_phoneme_dict[word]
                 else:
                     if verbose:
                         print(word + " doesn't exist in vocabulary ----------")
                     found_ipa_translation, phoneme_list_word = check_similiar_words(word, word_phoneme_dict, verbose)
-
                 if not found_ipa_translation:
                     missing_words.append(word)
                     break
@@ -323,39 +350,47 @@ def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, 
                     if phoneme_list:
                         phoneme_list.append("-")
                     phoneme_list.extend(phoneme_list_word)
+
             if found_ipa_translation:
                 list_id.append(file_name)
                 phoneme_list_idx = []
                 for phoneme in phoneme_list:
                     phoneme_list_idx.append(phoneme_index_dict[phoneme])
-
                 label_dict[file_name] = phoneme_list_idx
                 if verbose:
                     print("+++ " + x + " ...was added to the list")
+                    print(phoneme_list_idx)
             else:
                 if verbose:
                     print("--- " + x + " ...wasn't added to the list")
 
 
-def import_data_libri_speech(dataset_path, vocabulary_path, verbose=False):
+def import_data_libri_speech(dataset_path, vocabulary_path, vocabulary_path_addition=None, verbose=False):
     sub_folder_list = []
     trans_txt_list = []
     for x in os.listdir(dataset_path):
-        for y in os.listdir(dataset_path + '/' + x):
-            if os.path.isdir(dataset_path + '/' + x + "/" + y):
-                sub_folder_list.append(x + "/" + y + "/")
-                trans_txt_list.append(x + "-" + y + ".trans.txt")
+        if os.path.isdir(os.path.join(dataset_path, x)):
+            for y in os.listdir(dataset_path + '/' + x):
+                if os.path.isdir(dataset_path + '/' + x + "/" + y):
+                    sub_folder_list.append(x + "/" + y + "/")
+                    trans_txt_list.append(x + "-" + y + ".trans.txt")
 
     word_phoneme_dict = get_word_phoneme_dictionary(vocabulary_path)
+    if vocabulary_path_addition is not None:
+        word_phoneme_dict2 = get_word_phoneme_dictionary(vocabulary_path_addition, xml=False)
+        word_phoneme_dict.update(word_phoneme_dict2)
     phoneme_index_dict, _ = get_phoneme_index_dict()
 
     missing_words = []
     list_id = []
     label_dict = dict()
     for i, sub_folder in enumerate(sub_folder_list):
-        txt_file = dataset_path + sub_folder + trans_txt_list[i]
+        txt_file = dataset_path + sub_folder_list[i] + trans_txt_list[i]
         parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, word_phoneme_dict,
                          phoneme_index_dict, verbose)
+    if verbose:
+        print(len(missing_words))
+        print(len(list_id))
 
     return list_id, label_dict, missing_words
 

@@ -77,8 +77,8 @@ class Dataset(data.Dataset):
 
         x = self.transformData(spec.T).float()
 
-        if False:
-            spec2 = numpy.asarray(x)
+        '''
+                    spec2 = numpy.asarray(x)
             plt.figure(1)
             plt.clf()
             plt.subplot(211)
@@ -91,6 +91,7 @@ class Dataset(data.Dataset):
             plt.show()
             time.sleep(0)
             # x = torch.tensor(self.dataset['data'][ID, :, :, :]).cpu()
+        '''
 
         return x, y
 

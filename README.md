@@ -1,7 +1,8 @@
 # csr-pytorch
  Continuous speech recognition using pytorch
 
-
+Phoneme dictionary used to fill blanks:  
+http://www.speech.cs.cmu.edu/cgi-bin/cmudict
 
 # GSC vs Generated
 Quick profiling, early stopping patience = 1. i.e this table serves as an indication
