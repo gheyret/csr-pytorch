@@ -2,26 +2,22 @@ import torch.nn as nn
 import torch
 from models.helper_functions import SequenceWise, ResBlock
 
-class ConvNet8(nn.Module):
+class ConvNet11(nn.Module):
     """
-    Same as ConvNet2 but using ReLU as activation function and removing some layers while keeping 2x BLSTM
+    Same as ConvNet2 but using ReLU as activation function and removing even more layers while keeping 2x BLSTM
     """
     def __init__(self):
-        super(ConvNet8, self).__init__()
+        super(ConvNet11, self).__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=[5, 5], stride=(2, 2), padding=[0, 2]),
-            nn.BatchNorm2d(64),
-            nn.ReLU())
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=[5, 5], stride=(2,  2), padding=[0, 2]),
+            nn.Conv2d(1, 128, kernel_size=[5, 5], stride=(2, 2), padding=[0, 2]),
             nn.BatchNorm2d(128),
             nn.ReLU())
-        self.layer3 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=[3, 3], stride=(2, 1), padding=[0, 1]),  # 256
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=[5, 5], stride=(3,  2), padding=[0, 2]),
             nn.BatchNorm2d(256),
             nn.ReLU())
         self.layer4 = nn.Sequential(
-            nn.Conv2d(256, 512, kernel_size=[3, 3], stride=(2, 1), padding=[0, 1]),  # 512
+            nn.Conv2d(256, 512, kernel_size=[3, 3], stride=(3, 1), padding=[0, 1]),  # 512
             nn.BatchNorm2d(512),
             nn.ReLU())
 
@@ -39,7 +35,7 @@ class ConvNet8(nn.Module):
         N, _, F, T_in = x.size()
         out = self.layer1(x)
         out = self.layer2(out)
-        out = self.layer3(out)
+        #out = self.layer3(out)
         out = self.layer4(out)
 
         N, FM, F, T_out = out.size() # N = Batch size, FM = Feature maps, f = frequencies, t = time

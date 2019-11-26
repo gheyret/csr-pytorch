@@ -165,8 +165,10 @@ if __name__ == "__main__":
     from models.ConvNet8 import ConvNet8
     from models.ConvNet9 import ConvNet9
     from models.ConvNet10 import ConvNet10
+    from models.ConvNet11 import ConvNet11
 
-    for i_model, model in enumerate([ConvNet2(), ConvNet3(), ConvNet4(), ConvNet5(), ConvNet6(), ConvNet7(), ConvNet8(), ConvNet9(), ConvNet10()]):
+    for i_model, model in enumerate([ConvNet2(), ConvNet3(), ConvNet4(), ConvNet5(), ConvNet6(), ConvNet7(), ConvNet8(),
+                                     ConvNet9(), ConvNet10(), ConvNet11()]):
         model_name = "ConvNet" + str(i_model + 2)
         visdom_logger_train_ls = VisdomLogger("Training LS dev " + model_name, ["loss_train", "PER_train"], 10)
         processor_ls = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,

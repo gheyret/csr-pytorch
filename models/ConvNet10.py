@@ -4,7 +4,7 @@ from models.helper_functions import SequenceWise, ResBlock
 
 class ConvNet10(nn.Module):
     """
-    Same as ConvNet2 but using ReLU as activation function and 3 BLSTM.
+    Same as ConvNet2 but using ReLU as activation function and 3x BLSTM.
     """
     def __init__(self):
         super(ConvNet10, self).__init__()
