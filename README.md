@@ -4,6 +4,11 @@
 Phoneme dictionary used to fill blanks:  
 http://www.speech.cs.cmu.edu/cgi-bin/cmudict
 
+# LibriSpeech
+        Net         PER         Trained on:             Val on:         Saved as:
+        ConvNet2    0.1945      train-clean-100/360     dev-clean       LS_extended.pt
+        ConvNet2    0.3784      dev-clean 90%           dev-clean 10%   ---
+
 # GSC vs Generated
 Quick profiling, early stopping patience = 1. i.e this table serves as an indication
 but the best results could probably improve.  

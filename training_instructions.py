@@ -86,6 +86,7 @@ if __name__ == "__main__":
 
     # DATALOADERS LibriSpeech:
     # Train & Validation
+    '''
     libri_speech_dev_path_1 = args.libri_path + "train-clean-100/"  # "dev-clean/"
     libri_speech_dev_path_2 = args.libri_path + "train-clean-360/"  # "dev-clean/"
 
@@ -106,7 +107,19 @@ if __name__ == "__main__":
     validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_path_validation,
                              label_dict=label_dict_validation)
     validation_dataloader_ls = AudioDataLoader(validation_set, **params)
-
+    '''
+    libri_speech_dev_path = args.libri_path + "dev-clean/"
+    list_id, label_dict, missing_words = import_data_libri_speech(dataset_path=libri_speech_dev_path,
+                                                                  vocabulary_path=args.vocab_path,
+                                                                  vocabulary_path_addition=args.vocab_addition_path)
+    list_id_train, list_id_validation, label_dict_train, label_dict_validation = randomly_partition_data(0.9, list_id,
+                                                                                                         label_dict)
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=libri_speech_dev_path,
+                           label_dict=label_dict_train)
+    training_dataloader_ls = AudioDataLoader(training_set, **params)
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_dev_path,
+                             label_dict=label_dict_validation)
+    validation_dataloader_ls = AudioDataLoader(validation_set, **params)
 
     #   Testing:
     libri_speech_test_path = args.libri_path + "test-clean/"
@@ -119,6 +132,27 @@ if __name__ == "__main__":
 
     # Processor:
     # ["loss_train", "PER_train", "loss_val", "PER_val"]
+    visdom_logger_train_gsc = VisdomLogger("Training gsc dev", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
+
+    '''
+    # Can be used when training from fresh to help identify phonemes faster on the longer samples.
+    # Only 1-3 epochs should be needed.
+    processor_gsc = InstructionsProcessor(model, training_dataloader_gsc, validation_dataloader_gsc,
+                                         args.max_training_epochs,
+                                         400, args.learning_rate, use_cuda, early_stopper,
+                                         tensorboard_logger,
+                                         print_frequency=args.print_frequency)
+    print("--------Calling train_model()")
+
+    processor_gsc.print_cuda_information(use_cuda, device)
+    #processor_gsc.train_model(visdom_logger_train_gsc, verbose=True)
+    #processor_gsc.load_model("./trained_models/gsc_base.pt")
+
+    #print("Evaluating on test data:")
+    #processor_gsc.evaluate_model(testing_dataloader_gsc, use_early_stopping=False, epoch=-1)
+
+    '''
+
     visdom_logger_train_ls = VisdomLogger("Training LS dev", ["loss_train", "PER_train"], 10)
 
     processor_ls = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,
@@ -128,19 +162,13 @@ if __name__ == "__main__":
                                           print_frequency=args.print_frequency)
 
     print("--------Calling train_model()")
-    processor_ls.load_model("./trained_models/LS_base.pt")
+    #processor_ls.load_model("./trained_models/LS_extended.pt")
     #processor_ls.save_model("./trained_models/LS_base.pt")
     processor_ls.train_model(visdom_logger_train_ls, verbose=True)
-    processor_ls.save_model("./trained_models/LS_base.pt")
+    processor_ls.save_model("./trained_models/LS_dev.pt")
 
     print("Evaluating on test data:")
     processor_ls.evaluate_model(testing_dataloader_ls, use_early_stopping=False, epoch=-1)
-
-    print(len(missing_words_1))
-    
-    print(len(list_id_1))
-    print(len(missing_words_2))
-    print(len(list_id_2))
 
 
     if use_cuda:
