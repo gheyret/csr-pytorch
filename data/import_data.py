@@ -412,6 +412,27 @@ def randomly_partition_data(part_size, list_id, label_dict):
 
     return list_id_first, list_id_second, label_dict_first, label_dict_second
 
+
+def print_label_distribution(label_dict):
+    import numpy
+    label_counter = numpy.zeros((2, 46))
+    total = 0
+    for i in range(0,46):
+        label_counter[0, i] = i
+    for key, value in label_dict.items():
+        for phoneme in value:
+            label_counter[1, phoneme] += 1
+            total += 1
+    label_counter[1,:] = label_counter[1, :]/total
+
+    _, index_phoneme_dict = get_phoneme_index_dict()
+    lines = []
+    row = label_counter[0, :]
+    lines.append('   '.join('{1:>{0}}'.format(4, index_phoneme_dict[int(x)]) for x in row))
+    row = label_counter[1, :]
+    lines.append(' '.join('{:.4f}'.format(x) for x in row))
+    print('\n'.join(lines))
+
 #dataset_path = "/media/olof/SSD 1TB/data/LibriSpeech/LibriSpeech/dev-clean/"  # 84/121123"
 #vocabulary_path = "/media/olof/SSD 1TB/data/BritishEnglish_Reduced.xml"
 

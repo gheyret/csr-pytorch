@@ -121,6 +121,7 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     total_output_size = abs(2. * total_output * 4. / (1024 ** 2.))  # x2 for gradients
     total_params_size = abs(total_params.numpy() * 4. / (1024 ** 2.))
     total_size = total_params_size + total_output_size + total_input_size
+    total_batch_size = 7662.0/total_size
 
     print("================================================================")
     print("Total params: {0:,}".format(total_params))
@@ -131,5 +132,6 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     print("Forward/backward pass size (MB): %0.2f" % total_output_size)
     print("Params size (MB): %0.2f" % total_params_size)
     print("Estimated Total Size (MB): %0.2f" % total_size)
+    print("Estimated batch Size with 8GB GPU: %0.1f" % total_batch_size)
     print("----------------------------------------------------------------")
     # return summary

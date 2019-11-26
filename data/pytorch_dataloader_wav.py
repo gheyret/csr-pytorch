@@ -76,7 +76,6 @@ class Dataset(data.Dataset):
                         nfft=self.nfft)
 
         x = self.transformData(spec.T).float()
-
         '''
                     spec2 = numpy.asarray(x)
             plt.figure(1)

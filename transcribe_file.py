@@ -6,7 +6,7 @@ Used to transcribe individual .wav sample into text.
 
 import os
 import torch
-from cnn_model import ConvNet2 as Net
+from models.cnn_model import ConvNet2 as Net
 import soundfile as wavfile
 from data.front_end_processing import logfbank
 from data.import_data import get_phoneme_index_dict

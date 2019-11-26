@@ -128,15 +128,18 @@ class InstructionsProcessor(object):
 
             # Validation
             self.evaluate_model(self.validation_dataloader, use_early_stopping=True, epoch=epoch,
-                                visdom_logger=None)
+                                visdom_logger=None, verbose=verbose)
             #visdom_logger_train.update()
             if self.early_stopping.stop_training_early:
                 print("Early stopping")
                 break
         print('Finished Training')
-        print("Total training time: ", (time.time() - total_time), " s")
+        tot_time = time.time() - total_time
+        print("Total training time {:.0f}h, {:.0f}m, {:.0f}s".format(numpy.floor(tot_time/3600),
+                                                                     numpy.floor((tot_time % 3600)/60),
+                                                                     numpy.floor(((tot_time % 3600) % 60))))
 
-    def evaluate_model(self, data_dataloader, use_early_stopping, epoch, visdom_logger=None, mode=""):
+    def evaluate_model(self, data_dataloader, use_early_stopping, epoch, visdom_logger=None, mode="", verbose=False):
         n_dataloader_batches = len(data_dataloader)
         with torch.set_grad_enabled(False):
             self.model.eval()
@@ -150,15 +153,17 @@ class InstructionsProcessor(object):
             eval_edit_distance = numpy.average(eval_edit_distances)
             if visdom_logger is not None:
                 visdom_logger.add_value(["loss_val", "PER_val"], [eval_loss, eval_edit_distance])
-            print('---------------------------------------------------------------------------------------------')
+            if verbose:
+                print('---------------------------------------------------------------------------------------------')
             if use_early_stopping:
                 self.early_stopping(eval_loss, self.model)
-            self.print_metrics(current_epoch=epoch, current_batch=n_dataloader_batches - 1,
-                               total_batches=n_dataloader_batches,
-                               loss=eval_loss, edit_distance=eval_edit_distance, start_time=self.batch_time,
-                               max_epochs=self.max_epochs_training,
-                               batch_size=self.batch_size, print_frequency=n_dataloader_batches)
-            print('#############################################################################################')
+            if verbose:
+                self.print_metrics(current_epoch=epoch, current_batch=n_dataloader_batches - 1,
+                                   total_batches=n_dataloader_batches,
+                                   loss=eval_loss, edit_distance=eval_edit_distance, start_time=self.batch_time,
+                                   max_epochs=self.max_epochs_training,
+                                   batch_size=self.batch_size, print_frequency=n_dataloader_batches)
+                print('#############################################################################################')
 
     def print_cuda_information(self, use_cuda, device):
         print("############ CUDA Information #############")
