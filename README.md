@@ -14,6 +14,24 @@ http://www.speech.cs.cmu.edu/cgi-bin/cmudict
     ConvNet4            0.3425      dev-clean 90%           dev-clean 10%   ---
     ConvNet6            0.3616      dev-clean 90%           dev-clean 10%   ---
     ConvNet8            0.3746      dev-clean 90%           dev-clean 10%   ---
+    
+    ConvNet2            0.3746      dev-clean 90%           dev-clean 10%   ---
+    3, 3x skip          0.3677      dev-clean 90%           dev-clean 10%   ---
+    4, 0.5x time        0.3412      dev-clean 90%           dev-clean 10%   ---
+    5, varying Kernels  0.3466      dev-clean 90%           dev-clean 10%   ---
+    6, relu & 1xSkip    0.3614      dev-clean 90%           dev-clean 10%   ---
+    7, ReLU             0.3681      dev-clean 90%           dev-clean 10%   ---
+    8, ReLU reduced CNN 0.3735      dev-clean 90%           dev-clean 10%   ---
+    9, 1x BLSTM         0.3810      dev-clean 90%           dev-clean 10%   ---
+    10, 3x BLSTM        0.3442      dev-clean 90%           dev-clean 10%   ---
+    11, more reduced CNN0.3742      dev-clean 90%           dev-clean 10%   ---
+    12, skip & vary K   0.3611      dev-clean 90%           dev-clean 10%   ---
+    
+Next step: Run ConvNet11 vs ConvNet2 to see if removing any CNN layers affects performance.
+Then: Run ConvNet10 to see if more BLSTM can perform better when given more data.
+See if Convolutional LSTMS can help the decoding layers.
+Improve the decoding layers, i.e by adding more LSTMS or something.
+    
 # GSC vs Generated
 Quick profiling, early stopping patience = 1. i.e this table serves as an indication
 but the best results could probably improve.  
