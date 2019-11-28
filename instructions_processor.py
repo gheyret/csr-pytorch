@@ -115,21 +115,22 @@ class InstructionsProcessor(object):
             for batch_i, (local_data) in enumerate(self.training_dataloader, 0):
                 train_losses, train_edit_distances = self.process_batch_training(local_data, epoch, batch_i,
                                                                                  n_training_batches, train_losses,
-                                                                                 train_edit_distances, verbose, visdom_logger_train)
+                                                                                 train_edit_distances, verbose,
+                                                                                 visdom_logger_train=None)
 
                 self.early_stopping.exit_program_early()
                 if self.early_stopping.stop_program:
                     break
             train_loss = numpy.average(train_losses)
             train_edit_distance = numpy.average(train_edit_distances)
-            # visdom_logger_train.add_value(["loss_train", "PER_train"], [train_loss, train_edit_distance])
+            visdom_logger_train.add_value(["loss_train", "PER_train"], [train_loss, train_edit_distance])
             if self.early_stopping.stop_program:
                 break
 
             # Validation
             self.evaluate_model(self.validation_dataloader, use_early_stopping=True, epoch=epoch,
-                                visdom_logger=None, verbose=verbose)
-            #visdom_logger_train.update()
+                                visdom_logger=visdom_logger_train, verbose=verbose)
+            visdom_logger_train.update()
             if self.early_stopping.stop_training_early:
                 print("Early stopping")
                 break

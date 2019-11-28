@@ -65,27 +65,17 @@ if __name__ == "__main__":
 
     # DATALOADERS LibriSpeech:
     # Train & Validation
-    libri_speech_dev_path_1 = args.libri_path + "train-clean-100/"  # "dev-clean/"
-    libri_speech_dev_path_2 = args.libri_path + "train-clean-360/"  # "dev-clean/"
-
-    list_id_1, label_dict_1, missing_words_1 = import_data_libri_speech(dataset_path=libri_speech_dev_path_1,
-                                                                        vocabulary_path=args.vocab_path,
-                                                                        vocabulary_path_addition=args.vocab_addition_path)
-    list_id_2, label_dict_2, missing_words_2 = import_data_libri_speech(dataset_path=libri_speech_dev_path_2,
-                                                                        vocabulary_path=args.vocab_path,
-                                                                        vocabulary_path_addition=args.vocab_addition_path)
-
-    list_id_train, label_dict_train, wav_path_train = concat_datasets(list_id_1, list_id_2,
-                                                                      label_dict_1, label_dict_2,
-                                                                      libri_speech_dev_path_1, libri_speech_dev_path_2)
-    training_set = Dataset(list_ids=list_id_train, wavfolder_path=wav_path_train,
+    # Train on dev-clean val on part of dev-clean
+    libri_speech_dev_path = args.libri_path + "dev-clean/"
+    list_id, label_dict, missing_words = import_data_libri_speech(dataset_path=libri_speech_dev_path,
+                                                                  vocabulary_path=args.vocab_path,
+                                                                  vocabulary_path_addition=args.vocab_addition_path)
+    list_id_train, list_id_validation, label_dict_train, label_dict_validation = randomly_partition_data(0.9, list_id,
+                                                                                                         label_dict)
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=libri_speech_dev_path,
                            label_dict=label_dict_train)
     training_dataloader_ls = AudioDataLoader(training_set, **params)
-
-    libri_speech_path_validation = args.libri_path + "dev-clean/"  # "dev-clean/"
-    list_id_validation, label_dict_validation, missing_words_validation = import_data_libri_speech(
-        dataset_path=libri_speech_path_validation, vocabulary_path=args.vocab_path)
-    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_path_validation,
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_dev_path,
                              label_dict=label_dict_validation)
     validation_dataloader_ls = AudioDataLoader(validation_set, **params)
 
@@ -115,12 +105,13 @@ if __name__ == "__main__":
     from models.ConvNet12 import ConvNet12
     from models.ConvNet13 import ConvNet13
     from models.ConvNet14 import ConvNet14
+    from models.ConvNet15 import ConvNet15
 
-    model_num = [9, 2, 10, 13, 14]
-    for i_model, model in enumerate([ConvNet9(), ConvNet2(), ConvNet10(), ConvNet13(), ConvNet14()]):
+    model_num = [15]
+    for i_model, model in enumerate([ConvNet15()]):
 
-        model_name = "460ConvNet" + str(model_num[i_model])
-        visdom_logger_train_ls = VisdomLogger("LS clean-460 " + model_name, ["loss_train", "PER_train"], 10)
+        model_name = "ConvNet" + str(model_num[i_model])
+        visdom_logger_train_ls = VisdomLogger("LS dev " + model_name, ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
         processor_ls = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,
                                               args.max_training_epochs,
                                               args.batch_size, args.learning_rate, use_cuda, early_stopper,
@@ -128,7 +119,7 @@ if __name__ == "__main__":
                                               print_frequency=args.print_frequency)
         print("--------Calling train_model()")
         #processor_ls.load_model("./trained_models/LS_ConvNet" + str(model_num[i_model]) + ".pt")
-        processor_ls.train_model(visdom_logger_train_ls, verbose=False)
+        processor_ls.train_model(visdom_logger_train_ls, verbose=True)
         processor_ls.save_model("./trained_models/LS_" + model_name + ".pt")
         print("Evaluating on test data for " + model_name + ":")
         processor_ls.evaluate_model(testing_dataloader_ls, use_early_stopping=False, epoch=-1, verbose=True)

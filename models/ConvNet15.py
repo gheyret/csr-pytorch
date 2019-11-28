@@ -63,12 +63,6 @@ class ConvNet15(nn.Module):
         out, _ = nn.utils.rnn.pad_packed_sequence(out)
         out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
 
-        out = self.batchNorm(out)
-
-        out = nn.utils.rnn.pack_padded_sequence(out, output_lengths, batch_first=False)
-        out, h = self.rnn2(out)
-        out, _ = nn.utils.rnn.pad_packed_sequence(out)
-        out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
 
         # FC: connect a tensor(N, *, in_features) to (N, *, out_features)
         out = self.fc(out) # TxNxC
