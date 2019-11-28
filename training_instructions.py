@@ -3,7 +3,7 @@ from analytics.logger import TensorboardLogger, VisdomLogger
 from early_stopping import EarlyStopping
 from data.pytorch_dataloader_wav import Dataset, AudioDataLoader
 from data.import_data import import_data_libri_speech, randomly_partition_data, csv_to_list, csv_to_dict, \
-    print_label_distribution
+    print_label_distribution, concat_datasets
 import torch
 from models.ConvNet8 import ConvNet8 as Net
 from instructions_processor import InstructionsProcessor
@@ -23,7 +23,7 @@ parser.add_argument('--end_early_batches', default=101)
 parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
 parser.add_argument('--print_frequency', default=20)
-parser.add_argument('--validation_patience', default=5)
+parser.add_argument('--validation_patience', default=3)
 parser.add_argument('--learning_rate', default=1e-3)
 parser.add_argument('--number_of_workers', default=8)
 parser.add_argument('--batch_size', default=15)
@@ -63,64 +63,29 @@ if __name__ == "__main__":
 
     # Dataloaders:
 
-    # DATALOADERS GSC:
-    # Train
-    list_id_train = csv_to_list(args.gsc_path + "list_id_train.csv")
-    label_dict_train = csv_to_dict(args.gsc_path + "dict_labels_train.csv")
-    training_set = Dataset(list_ids=list_id_train, wavfolder_path=args.gsc_path, label_dict=label_dict_train)
-    training_dataloader_gsc = AudioDataLoader(training_set, **params)
-
-    # Validation
-    list_id_validation = csv_to_list(args.gsc_path + "list_id_validation.csv")
-    label_dict_validation = csv_to_dict(args.gsc_path + "dict_labels_validation.csv")
-    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=args.gsc_path,
-                             label_dict=label_dict_validation)
-    validation_dataloader_gsc = AudioDataLoader(validation_set, **params)
-
-    # Test
-    list_id_test = csv_to_list(args.gsc_path + "list_id_test.csv")
-    label_dict_test = csv_to_dict(args.gsc_path + "dict_labels_test.csv")
-    testing_set = Dataset(list_ids=list_id_test, wavfolder_path=args.gsc_path, label_dict=label_dict_test)
-    testing_dataloader_gsc = AudioDataLoader(testing_set, **params)
-
-
     # DATALOADERS LibriSpeech:
     # Train & Validation
-    '''
     libri_speech_dev_path_1 = args.libri_path + "train-clean-100/"  # "dev-clean/"
     libri_speech_dev_path_2 = args.libri_path + "train-clean-360/"  # "dev-clean/"
 
-    list_id_1, label_dict_1, missing_words_1 = import_data_libri_speech(dataset_path=libri_speech_dev_path_1, vocabulary_path=args.vocab_path, vocabulary_path_addition=args.vocab_addition_path)
-    list_id_2, label_dict_2, missing_words_2 = import_data_libri_speech(dataset_path=libri_speech_dev_path_2, vocabulary_path=args.vocab_path, vocabulary_path_addition=args.vocab_addition_path)
+    list_id_1, label_dict_1, missing_words_1 = import_data_libri_speech(dataset_path=libri_speech_dev_path_1,
+                                                                        vocabulary_path=args.vocab_path,
+                                                                        vocabulary_path_addition=args.vocab_addition_path)
+    list_id_2, label_dict_2, missing_words_2 = import_data_libri_speech(dataset_path=libri_speech_dev_path_2,
+                                                                        vocabulary_path=args.vocab_path,
+                                                                        vocabulary_path_addition=args.vocab_addition_path)
 
     list_id_train, label_dict_train, wav_path_train = concat_datasets(list_id_1, list_id_2,
-                                                    label_dict_1, label_dict_2,
-                                                    libri_speech_dev_path_1, libri_speech_dev_path_2)
+                                                                      label_dict_1, label_dict_2,
+                                                                      libri_speech_dev_path_1, libri_speech_dev_path_2)
     training_set = Dataset(list_ids=list_id_train, wavfolder_path=wav_path_train,
                            label_dict=label_dict_train)
     training_dataloader_ls = AudioDataLoader(training_set, **params)
-
 
     libri_speech_path_validation = args.libri_path + "dev-clean/"  # "dev-clean/"
     list_id_validation, label_dict_validation, missing_words_validation = import_data_libri_speech(
         dataset_path=libri_speech_path_validation, vocabulary_path=args.vocab_path)
     validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_path_validation,
-                             label_dict=label_dict_validation)
-    validation_dataloader_ls = AudioDataLoader(validation_set, **params)
-    '''
-    libri_speech_dev_path = args.libri_path + "dev-clean/"
-    list_id, label_dict, missing_words = import_data_libri_speech(dataset_path=libri_speech_dev_path,
-                                                                  vocabulary_path=args.vocab_path,
-                                                                  vocabulary_path_addition=args.vocab_addition_path)
-
-    print_label_distribution(label_dict)
-
-    list_id_train, list_id_validation, label_dict_train, label_dict_validation = randomly_partition_data(0.9, list_id,
-                                                                                                         label_dict)
-    training_set = Dataset(list_ids=list_id_train, wavfolder_path=libri_speech_dev_path,
-                           label_dict=label_dict_train)
-    training_dataloader_ls = AudioDataLoader(training_set, **params)
-    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_dev_path,
                              label_dict=label_dict_validation)
     validation_dataloader_ls = AudioDataLoader(validation_set, **params)
 
@@ -131,31 +96,12 @@ if __name__ == "__main__":
     testing_set = Dataset(list_ids=list_id_test, wavfolder_path=libri_speech_test_path, label_dict=label_dict_test)
     testing_dataloader_ls = AudioDataLoader(testing_set, **params)
 
-
+    print(len(list_id_train))
+    print(len(list_id_validation))
 
     # Processor:
     # ["loss_train", "PER_train", "loss_val", "PER_val"]
 
-    """
-    #visdom_logger_train_gsc = VisdomLogger("Training gsc dev", ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
-    visdom_logger_train_gsc = VisdomLogger("Training gsc dev", ["loss_train", "PER_train"], 10)
-
-    # Can be used when training from fresh to help identify phonemes faster on the longer samples.
-    # Only 1-3 epochs should be needed.
-    processor_gsc = InstructionsProcessor(model, training_dataloader_gsc, validation_dataloader_gsc,
-                                         1,
-                                         args.batch_size, args.learning_rate, use_cuda, early_stopper,
-                                         tensorboard_logger,
-                                         print_frequency=args.print_frequency)
-    print("--------Calling train_model()")
-
-    processor_gsc.print_cuda_information(use_cuda, device)
-    #processor_gsc.train_model(visdom_logger_train_gsc, verbose=True)
-    #processor_gsc.load_model("./trained_models/gsc_base.pt")
-    #processor_gsc.save_model("./trained_models/LS_gsc.pt")
-    #print("Evaluating on test data:")
-    #processor_gsc.evaluate_model(testing_dataloader_gsc, use_early_stopping=False, epoch=-1)
-    """
     from models.ConvNet2 import ConvNet2
     from models.ConvNet3 import ConvNet3
     from models.ConvNet4 import ConvNet4
@@ -167,17 +113,21 @@ if __name__ == "__main__":
     from models.ConvNet10 import ConvNet10
     from models.ConvNet11 import ConvNet11
     from models.ConvNet12 import ConvNet12
+    from models.ConvNet13 import ConvNet13
+    from models.ConvNet14 import ConvNet14
 
-    for i_model, model in enumerate([ConvNet2(), ConvNet3(), ConvNet4(), ConvNet5(), ConvNet6(), ConvNet7(), ConvNet8(),
-                                     ConvNet9(), ConvNet10(), ConvNet11(), ConvNet12()]):
-        model_name = "ConvNet" + str(i_model + 2)
-        visdom_logger_train_ls = VisdomLogger("Training LS dev " + model_name, ["loss_train", "PER_train"], 10)
+    model_num = [9, 2, 10, 13, 14]
+    for i_model, model in enumerate([ConvNet9(), ConvNet2(), ConvNet10(), ConvNet13(), ConvNet14()]):
+
+        model_name = "460ConvNet" + str(model_num[i_model])
+        visdom_logger_train_ls = VisdomLogger("LS clean-460 " + model_name, ["loss_train", "PER_train"], 10)
         processor_ls = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,
                                               args.max_training_epochs,
                                               args.batch_size, args.learning_rate, use_cuda, early_stopper,
                                               tensorboard_logger,
                                               print_frequency=args.print_frequency)
         print("--------Calling train_model()")
+        #processor_ls.load_model("./trained_models/LS_ConvNet" + str(model_num[i_model]) + ".pt")
         processor_ls.train_model(visdom_logger_train_ls, verbose=False)
         processor_ls.save_model("./trained_models/LS_" + model_name + ".pt")
         print("Evaluating on test data for " + model_name + ":")

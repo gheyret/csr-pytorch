@@ -15,13 +15,15 @@ from models.ConvNet9 import ConvNet9
 from models.ConvNet10 import ConvNet10
 from models.ConvNet11 import ConvNet11
 from models.ConvNet12 import ConvNet12
-
+from models.ConvNet13 import ConvNet13
+from models.ConvNet14 import ConvNet14
+from models.ConvNet15 import ConvNet15
 
 from analytics.torchsummary import summary
 
 #model = Net()
 for i_model, model in enumerate([ConvNet2(), ConvNet3(), ConvNet4(), ConvNet5(), ConvNet6(), ConvNet7(), ConvNet8(),
-                                 ConvNet9(), ConvNet10(), ConvNet11(), ConvNet12()]):
+                                 ConvNet9(), ConvNet10(), ConvNet11(), ConvNet12(), ConvNet13(), ConvNet14(), ConvNet15()]):
     print("--------------------------------------------------------------------ConvNet" + str(i_model + 2))
     model.cuda()
     summary(model, (1, 70, 1600))

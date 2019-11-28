@@ -396,6 +396,7 @@ def import_data_libri_speech(dataset_path, vocabulary_path, vocabulary_path_addi
 
 def randomly_partition_data(part_size, list_id, label_dict):
     import numpy
+    numpy.random.seed(123)
     num_samples = len(list_id)
     indices = numpy.random.permutation(num_samples)
 

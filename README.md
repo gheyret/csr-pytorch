@@ -5,7 +5,7 @@ Phoneme dictionary used to fill blanks:
 http://www.speech.cs.cmu.edu/cgi-bin/cmudict
 
 # LibriSpeech
-        Net             PER         Trained on:             Val on:         Saved as:
+        Net             PER         Trained on:             Val on:         Time:
     ConvNet2            0.1945      train-clean-100/360     dev-clean       LS_extended.pt
     ConvNet2            0.3784      dev-clean 90%           dev-clean 10%   ---
     CN2 + 3xBLSTM       0.5550      dev-clean 90%           dev-clean 10%   ---
@@ -15,22 +15,42 @@ http://www.speech.cs.cmu.edu/cgi-bin/cmudict
     ConvNet6            0.3616      dev-clean 90%           dev-clean 10%   ---
     ConvNet8            0.3746      dev-clean 90%           dev-clean 10%   ---
     
-    ConvNet2            0.3746      dev-clean 90%           dev-clean 10%   ---
-    3, 3x skip          0.3677      dev-clean 90%           dev-clean 10%   ---
-    4, 0.5x time        0.3412      dev-clean 90%           dev-clean 10%   ---
-    5, varying Kernels  0.3466      dev-clean 90%           dev-clean 10%   ---
-    6, relu & 1xSkip    0.3614      dev-clean 90%           dev-clean 10%   ---
-    7, ReLU             0.3681      dev-clean 90%           dev-clean 10%   ---
-    8, ReLU reduced CNN 0.3735      dev-clean 90%           dev-clean 10%   ---
-    9, 1x BLSTM         0.3810      dev-clean 90%           dev-clean 10%   ---
-    10, 3x BLSTM        0.3442      dev-clean 90%           dev-clean 10%   ---
-    11, more reduced CNN0.3742      dev-clean 90%           dev-clean 10%   ---
-    12, skip & vary K   0.3611      dev-clean 90%           dev-clean 10%   ---
+    ConvNet2            0.3746      dev-clean 90%           dev-clean 10%   11m
+    3, 3x skip          0.3677      dev-clean 90%           dev-clean 10%   11m
+    4, 0.5x time        0.3412      dev-clean 90%           dev-clean 10%   22m
+    5, varying Kernels  0.3466      dev-clean 90%           dev-clean 10%   12m
+    6, relu & 1xSkip    0.3614      dev-clean 90%           dev-clean 10%   12m
+    7, ReLU             0.3681      dev-clean 90%           dev-clean 10%   13m
+    8, ReLU reduced CNN 0.3735      dev-clean 90%           dev-clean 10%   9m
+    9, 1x BLSTM         0.3810      dev-clean 90%           dev-clean 10%   11m
+    10, 3x BLSTM        0.3442      dev-clean 90%           dev-clean 10%   15m
+    11, more reduced CNN0.3742      dev-clean 90%           dev-clean 10%   9m
+    12, skip & vary K   0.3611      dev-clean 90%           dev-clean 10%   18m
+  
+    ConvNet2            0.2515      train-clean-100 50%     dev-clean 100%  34m
+    3, 3x skip          0.2452      train-clean-100 50%     dev-clean 100%  35m
+    4, 0.5x time        0.2373      train-clean-100 50%     dev-clean 100%  54m
+    5, varying Kernels  0.2461      train-clean-100 50%     dev-clean 100%  29m
+    6, relu & 1xSkip    0.2459      train-clean-100 50%     dev-clean 100%  36m
+    7, ReLU             0.2493      train-clean-100 50%     dev-clean 100%  34m
+    8, ReLU reduced CNN 0.2531      train-clean-100 50%     dev-clean 100%  25m
+    9, 1x BLSTM         0.2639      train-clean-100 50%     dev-clean 100%  22m
+    10, 3x BLSTM        0.2379      train-clean-100 50%     dev-clean 100%  30m
+    11, more reduced CNN0.2587      train-clean-100 50%     dev-clean 100%  32m
+    12, skip & vary K   0.2426      train-clean-100 50%     dev-clean 100%  44m
+
     
-Next step: Run ConvNet11 vs ConvNet2 to see if removing any CNN layers affects performance.
-Then: Run ConvNet10 to see if more BLSTM can perform better when given more data.
-See if Convolutional LSTMS can help the decoding layers.
-Improve the decoding layers, i.e by adding more LSTMS or something.
+    9, 1x BLSTM         0.1960      train-clean-460         dev-clean 100%  2h 33m
+    ConvNet2 2x BLSTM   0.1866      train-clean-460         dev-clean 100%  3h 24m  
+    10 3x BLSTM         0.1884      train-clean-460         dev-clean 100%  3h 24m  
+    13, 4x BLSTM        0.1899      train-clean-460         dev-clean 100%  4h 4m 
+    14, 5x BLSTM        0.2648      train-clean-460         dev-clean 100%  9h 30m      
+
+Next step: Run ConvNet11 vs ConvNet2 to see if removing any CNN layers affects performance.  
+Then: Run ConvNet10 to see if more BLSTM can perform better when given more data.  
+See if Convolutional LSTMS can help the decoding layers.  
+Improve the decoding layers, i.e by adding more LSTMS or something.  
+Perhaps try skip connections around BLSTMS?  
     
 # GSC vs Generated
 Quick profiling, early stopping patience = 1. i.e this table serves as an indication
