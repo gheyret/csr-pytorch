@@ -26,7 +26,7 @@ parser.add_argument('--print_frequency', default=20)
 parser.add_argument('--validation_patience', default=3)
 parser.add_argument('--learning_rate', default=1e-3)
 parser.add_argument('--number_of_workers', default=8)
-parser.add_argument('--batch_size', default=15)
+parser.add_argument('--batch_size', default=50)
 parser.add_argument('--early_stopping_delta', default=0.001)
 
 if __name__ == "__main__":
@@ -107,8 +107,8 @@ if __name__ == "__main__":
     from models.ConvNet14 import ConvNet14
     from models.ConvNet15 import ConvNet15
 
-    model_num = [15]
-    for i_model, model in enumerate([ConvNet15()]):
+    model_num = [2]
+    for i_model, model in enumerate([ConvNet2()]):
 
         model_name = "ConvNet" + str(model_num[i_model])
         visdom_logger_train_ls = VisdomLogger("LS dev " + model_name, ["loss_train", "PER_train", "loss_val", "PER_val"], 10)

@@ -27,6 +27,8 @@ http://www.speech.cs.cmu.edu/cgi-bin/cmudict
     11, more reduced CNN0.3742      dev-clean 90%           dev-clean 10%   9m
     12, skip & vary K   0.3611      dev-clean 90%           dev-clean 10%   18m
     15, skip & vary K   0.3679      dev-clean 90%           dev-clean 10%   11m
+    2, librosa          0.3617      dev-clean 90%           dev-clean 10%   9m          
+  
   
     ConvNet2            0.2515      train-clean-100 50%     dev-clean 100%  34m
     3, 3x skip          0.2452      train-clean-100 50%     dev-clean 100%  35m

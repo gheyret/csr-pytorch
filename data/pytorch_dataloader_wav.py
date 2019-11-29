@@ -43,7 +43,7 @@ class Dataset(data.Dataset):
                                   std=[0.5])])
         self.dataset = None
         self.nfft = 512
-        self.nfilt = 70
+        self.nfilt = 40
         self.window_size = 0.02  # s
         self.step_size = 0.01  # s
         self.samplerate = 16000
@@ -69,28 +69,27 @@ class Dataset(data.Dataset):
         y = self.label_dict[file_name]
 
         test_sound = numpy.trim_zeros(test_sound, 'b')
+        spec = librosa.feature.melspectrogram(y=test_sound, sr=samplerate, S=None, n_fft=self.nfft,
+                                               hop_length=int(self.step_size * samplerate),
+                                               win_length=int(self.window_size * samplerate), window='hamming',
+                                               center=False, pad_mode='reflect', power=1.0, n_mels=self.nfilt)
+        spec = librosa.power_to_db(spec, ref=numpy.max)
+        spec_delta = librosa.feature.delta(spec)
+        spec_delta2 = librosa.feature.delta(spec, order=2)
+        spec = numpy.concatenate((spec, spec_delta, spec_delta2), axis=0)
+        #spec2_dd = librosa.feature.delta(spec2, order=2)
+
+
+
+        x = self.transformData(spec).float()
+        """
         spec = logfbank(test_sound, self.samplerate,
                         winlen=self.window_size,
                         winstep=self.step_size,
                         nfilt=self.nfilt,
                         nfft=self.nfft)
-
         x = self.transformData(spec.T).float()
-        '''
-                    spec2 = numpy.asarray(x)
-            plt.figure(1)
-            plt.clf()
-            plt.subplot(211)
-            im_spec = plt.imshow(spec2[0,:,:], cmap=plt.cm.jet, interpolation='none', aspect='auto', origin='lower')
-            plt.colorbar(im_spec)
-            #plt.axis('off')
-            plt.subplot(212)
-            plt.plot(test_sound)
-            #plt.axis('off')
-            plt.show()
-            time.sleep(0)
-            # x = torch.tensor(self.dataset['data'][ID, :, :, :]).cpu()
-        '''
+        """
 
         return x, y
 
