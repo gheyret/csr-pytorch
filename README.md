@@ -11,7 +11,14 @@ Extended test set by adding vocabulary.
         Net             PER         Trained on:             Val on:         Time:
     ConvNet2            0.2729      dev-clean 90%           dev-clean 10%   9m
     ConvNet2            0.2682      dev-clean 90%           dev-clean 10%   9m
-    
+    ConvNet2            0.2844      dev-clean 90%           dev-clean 10%   9m
+    ConvNet2 GRU        0.2535      dev-clean 90%           dev-clean 10%   6m
+    F2, GRU, bi=f,f=120 0.3171      dev-clean 90%           dev-clean 10%   18m
+    F2, GRU, bi=t,f=120 0.2618      dev-clean 90%           dev-clean 10%   9m
+    F2, GRU, bi=t,f=80  0.2625      dev-clean 90%           dev-clean 10%   9m
+    F2, GRU, f=40&d&d2  0.2552      dev-clean 90%           dev-clean 10%   6m     
+    F3, GRU, f=40&d&d2  0.2527      dev-clean 90%           dev-clean 10%   15m    
+                  
 # LibriSpeech
         Net             PER         Trained on:             Val on:         Time:
     ConvNet2            0.1945      train-clean-100/360     dev-clean       LS_extended.pt

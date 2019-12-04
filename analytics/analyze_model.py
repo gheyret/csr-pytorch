@@ -4,7 +4,8 @@ Created on Wed Sep 25 00:07:06 2019
 
 @author: Brolof
 """
-from models.ConvNet2 import ConvNet2
+from models.FuncNet1 import FuncNet1
+from models.FuncNet2 import FuncNet2
 from models.ConvNet3 import ConvNet3
 from models.ConvNet4 import ConvNet4
 from models.ConvNet5 import ConvNet5
@@ -25,7 +26,7 @@ from models.RawNet2 import RawNet2
 from analytics.torchsummary import summary
 
 #model = Net()
-for i_model, model in enumerate([ConvNet2(), ConvNet3(), ConvNet4(), ConvNet5(), ConvNet6(), ConvNet7(), ConvNet8(),
+for i_model, model in enumerate([ConvNet3(), ConvNet4(), ConvNet5(), ConvNet6(), ConvNet7(), ConvNet8(),
                                  ConvNet9(), ConvNet10(), ConvNet11(), ConvNet12(), ConvNet13(), ConvNet14(), ConvNet15()]):
     print("--------------------------------------------------------------------ConvNet" + str(i_model + 2))
     model.cuda()
@@ -39,3 +40,11 @@ summary(model, (3, 70, 1600))
 model = RawNet2()
 model.cuda()
 summary(model, (1, 1, 16000))
+
+model = FuncNet1(num_features_input=80)
+model.cuda()
+summary(model, (1, 80, 1600))
+
+model = FuncNet2(num_features_input=40, num_input_channels=3)
+model.cuda()
+summary(model, (3, 40, 1600))

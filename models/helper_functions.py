@@ -51,3 +51,33 @@ class ResBlock(nn.Module):
         out += identity
         out = self.relu(out)
         return out
+
+
+class PaddedRNN(nn.Module):
+
+    def __init__(self, mode='RNN', input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batchnorm=True):
+        super().__init__()
+        self.bidirectional = bidirectional
+        if mode is 'RNN':
+            self.rnn = nn.RNN(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, batch_first=False)
+        elif mode is 'LSTM':
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers,
+                               bidirectional=bidirectional, batch_first=False)
+        elif mode is 'GRU':
+            self.rnn = nn.GRU(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers,
+                               bidirectional=bidirectional, batch_first=False)
+        self.use_batchnorm = batchnorm
+        if batchnorm:
+            self.batchNorm = SequenceWise(nn.BatchNorm1d(hidden_size))
+
+    def forward(self, x, input_lengths):
+        # Expects: T x N x (F*FM
+        out = nn.utils.rnn.pack_padded_sequence(x, input_lengths, batch_first=False)
+        out, h = self.rnn(out)
+        out, _ = nn.utils.rnn.pad_packed_sequence(out)
+        if self.bidirectional:
+            out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
+
+        if self.use_batchnorm:
+            out = self.batchNorm(out)
+        return out

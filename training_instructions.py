@@ -3,7 +3,7 @@ from analytics.logger import TensorboardLogger, VisdomLogger
 from early_stopping import EarlyStopping
 from data.pytorch_dataloader_wav import Dataset, AudioDataLoader
 from data.import_data import import_data_libri_speech, randomly_partition_data, csv_to_list, csv_to_dict, \
-    print_label_distribution, concat_datasets, order_data_by_length
+    print_label_distribution, concat_datasets, order_data_by_length, get_num_classes
 import torch
 from models.ConvNet8 import ConvNet8 as Net
 from instructions_processor import InstructionsProcessor
@@ -30,7 +30,7 @@ parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
 parser.add_argument('--max_training_epochs_ordered', default=5)
 
-parser.add_argument('--mini_epoch_length', default=20)
+parser.add_argument('--mini_epoch_length', default=40)
 parser.add_argument('--mini_epoch_evaluate_validation', default=False)
 parser.add_argument('--mini_epoch_early_stopping', default=False)
 parser.add_argument('--mini_epoch_validation_partition_size', default=0.2)
@@ -41,13 +41,21 @@ parser.add_argument('--leraning_rate_mode', default='cyclic')  # static or cycli
 parser.add_argument('--number_of_workers', default=8)
 parser.add_argument('--batch_size', default=16)
 
-parser.add_argument('--input_type', default='features')  # features or raw
+parser.add_argument('--rnn_memory_type', default='GRU')  # GRU or LSTM or RNN
+parser.add_argument('--rnn_bidirectional', default=True)  # GRU or LSTM bidirectional?
+parser.add_argument('--non_linearity', default='ReLU')  # ReLU or Hardtanh
+
+parser.add_argument('--input_type', default='features')  # features or raw or power
+parser.add_argument('--num_features_input', default=40)  # features = Any, power = 257
+parser.add_argument('--use_delta_features', default=True)  # Use of delta & delta delta features
+
 parser.add_argument('--architecture_type', default='CTC')  # CTC or LAS
 parser.add_argument('--label_type', default='phoneme')  # phoneme or letter
 
 if __name__ == "__main__":
     args = parser.parse_args()
 
+    assert (not (args.input_type is 'raw') & (args.use_delta_features is True)), "Can't have raw input & delta features"
     # Parameters
     model = Net()
     if args.continue_training:
@@ -92,16 +100,19 @@ if __name__ == "__main__":
 
     list_id_train_ordered, label_dict_train_ordered = order_data_by_length(label_dict_train)
     training_set_ordered = Dataset(list_ids=list_id_train_ordered, wavfolder_path=libri_speech_dev_path,
-                                   label_dict=label_dict_train_ordered, input_type=args.input_type)
+                                   label_dict=label_dict_train_ordered, num_features_input=args.num_features_input,
+                                   use_delta_features=args.use_delta_features, input_type=args.input_type)
     params_ordered = params.copy()
     params_ordered["shuffle"] = False
     training_dataloader_ls_ordered = AudioDataLoader(training_set_ordered, **params_ordered)
 
     training_set = Dataset(list_ids=list_id_train, wavfolder_path=libri_speech_dev_path,
-                           label_dict=label_dict_train, input_type=args.input_type)
+                           label_dict=label_dict_train, num_features_input=args.num_features_input,
+                           use_delta_features=args.use_delta_features, input_type=args.input_type)
     training_dataloader_ls = AudioDataLoader(training_set, **params)
     validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_dev_path,
-                             label_dict=label_dict_validation, input_type=args.input_type)
+                             label_dict=label_dict_validation, num_features_input=args.num_features_input,
+                             use_delta_features=args.use_delta_features, input_type=args.input_type)
     validation_dataloader_ls = AudioDataLoader(validation_set, **params)
 
     #   Testing:
@@ -111,19 +122,18 @@ if __name__ == "__main__":
                                                                                  vocabulary_path_addition=args.vocab_addition_path,
                                                                                  label_type=args.label_type)
     testing_set = Dataset(list_ids=list_id_test, wavfolder_path=libri_speech_test_path,
-                          label_dict=label_dict_test, input_type=args.input_type)
+                          label_dict=label_dict_test, num_features_input=args.num_features_input,
+                                   use_delta_features=args.use_delta_features, input_type=args.input_type)
     testing_dataloader_ls = AudioDataLoader(testing_set, **params)
 
-    print(len(list_id_train))
-    print(len(list_id_validation))
-    print(len(list_id_test))
-    print(len(label_dict_test))
-    print(len(missing_words_test))
+    print("Training samples/missing: {}/{}. Val samples/missing {}/{}. Test samples/missing {}/{}.".format(
+        len(list_id_train), len(missing_words), len(list_id_validation), len(missing_words), len(list_id_test), len(missing_words_test)))
 
     # Processor:
     # ["loss_train", "PER_train", "loss_val", "PER_val"]
 
-    from models.ConvNet2 import ConvNet2
+    from models.FuncNet1 import FuncNet1
+    from models.FuncNet2 import FuncNet2
     from models.ConvNet3 import ConvNet3
     from models.ConvNet4 import ConvNet4
     from models.ConvNet5 import ConvNet5
@@ -141,10 +151,17 @@ if __name__ == "__main__":
     from models.DNet1 import DNet1
     from models.DNet2 import DNet2
     from models.RawNet2 import RawNet2
-
+    if args.use_delta_features:
+        num_input_channels = 3
+    else:
+        num_input_channels = 1
+    model_kwargs = {"num_classes": get_num_classes(args.label_type), "num_features_input": args.num_features_input,
+                    "num_input_channels": num_input_channels, "non_linearity": args.non_linearity,
+                    "rnn_bidirectional": args.rnn_bidirectional,
+                    "memory_type": args.rnn_memory_type, "input_type": args.input_type}
     model_num = [2]
-    for i_model, model in enumerate([ConvNet2()]):
-        model_name = "ConvNet" + str(model_num[i_model])
+    for i_model, model in enumerate([FuncNet2(**model_kwargs)]):
+        model_name = "FuncNet" + str(model_num[i_model])
         visdom_logger_train_ls = VisdomLogger("LS dev " + model_name + " LR: cyclic (f=6): " + str(args.learning_rate),
                                               ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
         processor_ls = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,
@@ -161,16 +178,19 @@ if __name__ == "__main__":
 
         print("--------Calling train_model()")
         # processor_ls.load_model("./trained_models/LS_ConvNet" + str(model_num[i_model]) + ".pt")
-        processor_ls.load_model("./trained_models/LS_460ConvNet2.pt")
+        #processor_ls.load_model("./trained_models/LS_460ConvNet2.pt")
         # processor_ls.load_model("./trained_models/checkpoint.pt")
-        #processor_ls.train_model(visdom_logger_train_ls, args.mini_epoch_validation_partition_size,
-        #                         args.mini_epoch_evaluate_validation,
-        #                         args.mini_epoch_early_stopping, ordered=True, verbose=True)
-        #processor_ls.train_model(visdom_logger_train_ls, args.mini_epoch_validation_partition_size,
-        #                         args.mini_epoch_evaluate_validation,
-        #                         args.mini_epoch_early_stopping, ordered=False, verbose=True)
-        # processor_ls.save_model("./trained_models/LS_" + model_name + ".pt")
+        processor_ls.train_model(visdom_logger_train_ls, args.mini_epoch_validation_partition_size,
+                                 args.mini_epoch_evaluate_validation,
+                                 args.mini_epoch_early_stopping, ordered=True, verbose=True)
+        processor_ls.train_model(visdom_logger_train_ls, args.mini_epoch_validation_partition_size,
+                                 args.mini_epoch_evaluate_validation,
+                                 args.mini_epoch_early_stopping, ordered=False, verbose=True)
+        #processor_ls.save_model("./trained_models/LS_" + model_name + ".pt")
+
+
         print("Evaluating on test data for " + model_name + ":")
+        processor_ls.load_model("./trained_models/checkpoint.pt")
         processor_ls.evaluate_model(testing_dataloader_ls, use_early_stopping=False, epoch=-1, verbose=True)
         early_stopper.reset()
 

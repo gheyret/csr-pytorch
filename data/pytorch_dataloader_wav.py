@@ -28,7 +28,7 @@ def normalize_spec(input_spec):
 
 class Dataset(data.Dataset):
 
-    def __init__(self, list_ids, wavfolder_path, label_dict, input_type='features'):
+    def __init__(self, list_ids, wavfolder_path, label_dict, num_features_input, use_delta_features=False, input_type='features'):
         '''
 
         :param list_ids: Expects list_IDs to be a list of file names for the individual wav files.
@@ -48,11 +48,12 @@ class Dataset(data.Dataset):
             [transforms.ToTensor(), transforms.Normalize(mean=[0.0], std=[0.5], inplace=True)])
         self.dataset = None
         self.nfft = 512
-        self.nfilt = 70
+        self.nfilt = num_features_input
         self.window_size = 0.02  # s
         self.step_size = 0.01  # s
         self.samplerate = 16000
         self.input_type = input_type
+        self.use_delta_features = use_delta_features
 
     def __len__(self):
         'Denotes the total number of samples'
@@ -70,7 +71,6 @@ class Dataset(data.Dataset):
         else:
             wav_path = self.wavfolder_path + file_name
 
-
         test_sound, samplerate = librosa.load(wav_path, sr=self.samplerate)
         y = self.label_dict[file_name]
 
@@ -81,27 +81,33 @@ class Dataset(data.Dataset):
                                                    win_length=int(self.window_size * samplerate), window='hamming',
                                                    center=False, pad_mode='reflect', power=1.0, n_mels=self.nfilt)
             spec = librosa.power_to_db(spec, ref=numpy.max)
+
+            if self.use_delta_features:
+                spec_delta = librosa.feature.delta(spec)
+                spec_delta2 = librosa.feature.delta(spec, order=2)
+                spec = normalize_spec(spec)
+                spec_delta = normalize_spec(spec_delta)
+                spec_delta2 = normalize_spec(spec_delta2)
+                spec = numpy.array([spec, spec_delta, spec_delta2])
+                #spec = numpy.concatenate((spec, spec_delta, spec_delta2), axis=0)
+
             x = self.transformData(spec).float()
+            if self.use_delta_features:
+                x = x.transpose(0, 1).transpose(1, 2)
+        elif self.input_type is 'power':
+            sound = test_sound.astype('float32') / 32767
+            D = librosa.stft(sound, n_fft=self.nfft, hop_length=int(self.step_size * samplerate),
+                             win_length=int(self.window_size * samplerate), window='hamming')
+            spect, phase = librosa.magphase(D)
+            spec = numpy.log1p(spect)
+            x = torch.from_numpy(spec).float()
+            x = x.unsqueeze(0)
+
         elif self.input_type == 'raw':
             #x = torch.from_numpy(test_sound).float()
             #x = x.unsqueeze(0).unsqueeze(0)
             x = numpy.expand_dims(test_sound, axis=0)
-
             x = self.transformData(x).float()
-
-
-        #spec_delta = librosa.feature.delta(spec)
-        #spec_delta2 = librosa.feature.delta(spec, order=2)
-        #spec = normalize_spec(spec)
-        #spec_delta = normalize_spec(spec_delta)
-        #spec_delta2 = normalize_spec(spec_delta2)
-
-
-        #spec = numpy.array([spec, spec_delta, spec_delta2])
-        #spec = numpy.concatenate((spec, spec_delta, spec_delta2), axis=0)
-        #spec2_dd = librosa.feature.delta(spec2, order=2)
-
-        #x = x.transpose(0, 1).transpose(1, 2)
 
 
         return x, y

@@ -20,6 +20,9 @@ def concat_datasets(list_id_first, list_id_second, label_dict_first, label_dict_
     # Todo: Make sure input of wav_path_first of type dict is handled so that it can be concat several times
     # Todo: make sure dataloader uses the correct path. Path determined by checking if idx is lower than current key but higher than previous
 
+def get_num_classes(label_type='phoneme'):
+    label_index_dict, index_label_dict = get_label_index_dict(label_type)
+    return len(label_index_dict)
 
 def get_label_index_dict(label_type='phoneme'):
     if label_type is 'phoneme':
