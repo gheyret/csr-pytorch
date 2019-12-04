@@ -4,35 +4,34 @@ from models.helper_functions import SequenceWise, ResBlock
 
 class DNet1(nn.Module):
     """
-    Baseline.
-    LibriSpeech training on train-clean-100 and train-clean-360 and dev-clean as validation reaches ~20% PER on test-clean.
+    Delta-Net uses delta and delta-delta features as input.
     """
-    def __init__(self):
+    def __init__(self, input_channel=3):
         super(DNet1, self).__init__()
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=[5, 5], stride=(2, 2), padding=[0, 2]),
+            nn.Conv2d(input_channel, 64, kernel_size=[5, 5], stride=(2, 2), padding=[0, 2]),
             nn.BatchNorm2d(64),
-            nn.Hardtanh(0, 20, inplace=True))
+            nn.ReLU())
         self.layer2 = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=[5, 5], stride=(2,  2), padding=[0, 2]),
             nn.BatchNorm2d(128),
-            nn.Hardtanh(0, 20, inplace=True))
+            nn.ReLU())
         self.layer3 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=[3, 3], stride=(2, 1), padding=[0, 1]),  # 256
             nn.BatchNorm2d(256),
-            nn.Hardtanh(0, 20, inplace=True))
+            nn.ReLU())
         self.layer3p = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=[3, 3], stride=(2, 1), padding=[1, 1]),  # 256
+            nn.Conv2d(256, 256, kernel_size=[3, 3], stride=(1, 1), padding=[1, 1]),  # 256
             nn.BatchNorm2d(256),
-            nn.Hardtanh(0, 20, inplace=True))
+            nn.ReLU())
         self.layer3p2 = nn.Sequential(
             nn.Conv2d(256, 256, kernel_size=[3, 3], stride=(1, 1), padding=[1, 1]),  # 256
             nn.BatchNorm2d(256),
-            nn.Hardtanh(0, 20, inplace=True))
+            nn.ReLU())
         self.layer4 = nn.Sequential(
             nn.Conv2d(256, 512, kernel_size=[3, 3], stride=(2, 1), padding=[0, 1]),  # 512
             nn.BatchNorm2d(512),
-            nn.Hardtanh(0, 20, inplace=True))
+            nn.ReLU())
 
         self.rnn = nn.Sequential(
             nn.LSTM(input_size=1536, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
@@ -40,8 +39,7 @@ class DNet1(nn.Module):
         self.rnn2 = nn.Sequential(
             nn.LSTM(input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batch_first=False))
 
-        self.fc = nn.Sequential(
-            nn.Linear(512, 46))
+        self.fc = nn.Sequential(nn.Linear(512, 46))
         self.softMax = nn.LogSoftmax(dim=-1)
 
     def forward(self, x, input_lengths):

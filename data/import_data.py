@@ -21,18 +21,23 @@ def concat_datasets(list_id_first, list_id_second, label_dict_first, label_dict_
     # Todo: make sure dataloader uses the correct path. Path determined by checking if idx is lower than current key but higher than previous
 
 
-def get_phoneme_index_dict():
-    label_list = ['_', '-', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B',
-                  'CH', 'D', 'DH', 'EH', 'EHR', 'ER', 'EY', 'F', 'G', 'H', 'IH',
-                  'IY', 'IYR', 'JH', 'K', 'L', 'M', 'N', 'NG', 'O', 'OW',
-                  'OY', 'P', 'R', 'S', 'SH', 'T', 'TH', 'UH', 'UHR', 'UW',
-                  'V', 'W', 'Y', 'Z', 'ZH']  # - is space character
-    phoneme_index_dict = dict()
-    index_phoneme_dict = dict()
+def get_label_index_dict(label_type='phoneme'):
+    if label_type is 'phoneme':
+        label_list = ['_', '-', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B',
+                      'CH', 'D', 'DH', 'EH', 'EHR', 'ER', 'EY', 'F', 'G', 'H', 'IH',
+                      'IY', 'IYR', 'JH', 'K', 'L', 'M', 'N', 'NG', 'O', 'OW',
+                      'OY', 'P', 'R', 'S', 'SH', 'T', 'TH', 'UH', 'UHR', 'UW',
+                      'V', 'W', 'Y', 'Z', 'ZH']  # - is space character
+    elif label_type is 'letter':
+        label_list = ['_', ' ', '\'', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+                      'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
+                      'T', 'U', 'V', 'W', 'X', 'Y', 'Z']  # - is space character
+    label_index_dict = dict()
+    index_label_dict = dict()
     for i, x in enumerate(label_list):
-        phoneme_index_dict[x] = i
-        index_phoneme_dict[i] = x
-    return phoneme_index_dict, index_phoneme_dict
+        label_index_dict[x] = i
+        index_label_dict[i] = x
+    return label_index_dict, index_label_dict
 
 
 def get_word_phoneme_dictionary(vocabulary_path, xml=True):
@@ -85,7 +90,7 @@ def import_data_generated(dataset_path, verbose=False, train_data_partition_size
     txt_file = parent_dir + "/" + last_dir + ".txt"
 
     list_id = []
-    phoneme_index_dict, _ = get_phoneme_index_dict()
+    phoneme_index_dict, _ = get_label_index_dict()
 
     label_dict = dict()
     with open(txt_file, 'r') as file:
@@ -203,7 +208,7 @@ def import_data_gsc(dataset_path, verbose=False, train_data_partition_size=0.0):
 
     train_names = []
     total = 0
-    phoneme_index_dict, _ = get_phoneme_index_dict()
+    phoneme_index_dict, _ = get_label_index_dict()
 
     import random
 
@@ -322,8 +327,8 @@ def check_similiar_words(word, word_phoneme_dict, verbose):
     return False, []
 
 
-def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, word_phoneme_dict,
-                                  phoneme_index_dict, verbose):
+def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, label_index_dict,
+                                  label_type, word_phoneme_dict=None, verbose=False):
     with open(txt_file, 'r') as file:
         lines = file.readlines()
         for x in lines:
@@ -332,40 +337,53 @@ def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, 
             word_list = x.split(" ")
 
             found_ipa_translation = True
-            phoneme_list = []
+            label_list = []
             file_name = sub_folder + word_list[0] + ".flac"
+            if label_type is 'phoneme':
+                for word in word_list[1:]:
+                    word = word.lower()
+                    if word in word_phoneme_dict:
+                        phoneme_list_word = word_phoneme_dict[word]
+                    else:
+                        if verbose:
+                            print(word + " doesn't exist in vocabulary ----------")
+                        found_ipa_translation, phoneme_list_word = check_similiar_words(word, word_phoneme_dict, verbose)
+                    if not found_ipa_translation:
+                        missing_words.append(word)
+                        break
+                    else:
+                        if label_list:
+                            label_list.append("-")
+                        label_list.extend(phoneme_list_word)
 
-            for word in word_list[1:]:
-                word = word.lower()
-                if word in word_phoneme_dict:
-                    phoneme_list_word = word_phoneme_dict[word]
+                if found_ipa_translation:
+                    list_id.append(file_name)
+                    phoneme_list_idx = []
+                    for phoneme in label_list:
+                        phoneme_list_idx.append(label_index_dict[phoneme])
+                    label_dict[file_name] = phoneme_list_idx
+                    if verbose:
+                        print("+++ " + x + " ...was added to the list")
+                        print(phoneme_list_idx)
                 else:
                     if verbose:
-                        print(word + " doesn't exist in vocabulary ----------")
-                    found_ipa_translation, phoneme_list_word = check_similiar_words(word, word_phoneme_dict, verbose)
-                if not found_ipa_translation:
-                    missing_words.append(word)
-                    break
-                else:
-                    if phoneme_list:
-                        phoneme_list.append("-")
-                    phoneme_list.extend(phoneme_list_word)
+                        print("--- " + x + " ...wasn't added to the list")
 
-            if found_ipa_translation:
+            elif label_type is 'letter':
+                for word in word_list[1:]:
+                    letter_list_word_idx = []
+                    for letter in word:
+                        letter_list_word_idx.append(label_index_dict[letter])
+                    if label_list:
+                        label_list.append(1)  # index 1 in the label list should contain the space character.
+                    label_list.extend(letter_list_word_idx)
+                label_dict[file_name] = label_list
                 list_id.append(file_name)
-                phoneme_list_idx = []
-                for phoneme in phoneme_list:
-                    phoneme_list_idx.append(phoneme_index_dict[phoneme])
-                label_dict[file_name] = phoneme_list_idx
                 if verbose:
-                    print("+++ " + x + " ...was added to the list")
-                    print(phoneme_list_idx)
-            else:
-                if verbose:
-                    print("--- " + x + " ...wasn't added to the list")
+                    print("Extracted: " + label_list)
+                    print("--- " + x + " | was added to the list")
 
-
-def import_data_libri_speech(dataset_path, vocabulary_path, vocabulary_path_addition=None, verbose=False):
+def import_data_libri_speech(dataset_path, vocabulary_path=None, vocabulary_path_addition=None, label_type='phoneme', verbose=False):
     sub_folder_list = []
     trans_txt_list = []
     for x in os.listdir(dataset_path):
@@ -375,19 +393,24 @@ def import_data_libri_speech(dataset_path, vocabulary_path, vocabulary_path_addi
                     sub_folder_list.append(x + "/" + y + "/")
                     trans_txt_list.append(x + "-" + y + ".trans.txt")
 
-    word_phoneme_dict = get_word_phoneme_dictionary(vocabulary_path)
-    if vocabulary_path_addition is not None:
-        word_phoneme_dict2 = get_word_phoneme_dictionary(vocabulary_path_addition, xml=False)
-        word_phoneme_dict.update(word_phoneme_dict2)
-    phoneme_index_dict, _ = get_phoneme_index_dict()
+    if label_type is 'phoneme':
+        word_phoneme_dict = get_word_phoneme_dictionary(vocabulary_path)
+        if vocabulary_path_addition is not None:
+            word_phoneme_dict2 = get_word_phoneme_dictionary(vocabulary_path_addition, xml=False)
+            word_phoneme_dict.update(word_phoneme_dict2)
+    label_index_dict, _ = get_label_index_dict(label_type=label_type)
 
     missing_words = []
     list_id = []
     label_dict = dict()
     for i, sub_folder in enumerate(sub_folder_list):
         txt_file = dataset_path + sub_folder_list[i] + trans_txt_list[i]
-        parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, word_phoneme_dict,
-                         phoneme_index_dict, verbose)
+        if label_type is 'phoneme':
+            parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, label_index_dict,
+                                        label_type, word_phoneme_dict=word_phoneme_dict, verbose=verbose)
+        else:
+            parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, label_index_dict,
+                                        label_type, word_phoneme_dict=None, verbose=verbose)
     if verbose:
         print(len(missing_words))
         print(len(list_id))
@@ -414,6 +437,20 @@ def randomly_partition_data(part_size, list_id, label_dict):
     return list_id_first, list_id_second, label_dict_first, label_dict_second
 
 
+def order_data_by_length(label_dict):
+    def sort_by(p):
+        return len(p[1])
+    sorted_list_id = []
+    sorted_label_dict = dict()
+    sorted_label_tuples = sorted(label_dict.items(), key=sort_by)
+    for file_label_tuple in sorted_label_tuples:
+        file_name = file_label_tuple[0]
+        label = file_label_tuple[1]
+        sorted_list_id.append(file_name)
+        sorted_label_dict[file_name] = label
+    return sorted_list_id, sorted_label_dict
+
+
 def print_label_distribution(label_dict):
     import numpy
     label_counter = numpy.zeros((2, 46))
@@ -426,7 +463,7 @@ def print_label_distribution(label_dict):
             total += 1
     label_counter[1,:] = label_counter[1, :]/total
 
-    _, index_phoneme_dict = get_phoneme_index_dict()
+    _, index_phoneme_dict = get_label_index_dict()
     lines = []
     row = label_counter[0, :]
     lines.append('   '.join('{1:>{0}}'.format(4, index_phoneme_dict[int(x)]) for x in row))
@@ -438,4 +475,5 @@ def print_label_distribution(label_dict):
 #vocabulary_path = "/media/olof/SSD 1TB/data/BritishEnglish_Reduced.xml"
 
 #list_id, label_dict, missing_words = import_data_libri_speech(dataset_path, vocabulary_path)
+#order_data_by_length(list_id, label_dict)
 #randomly_partition_data(0.8, list_id, label_dict)

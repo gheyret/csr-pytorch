@@ -19,6 +19,8 @@ from models.ConvNet13 import ConvNet13
 from models.ConvNet14 import ConvNet14
 from models.ConvNet15 import ConvNet15
 from models.DNet1 import DNet1
+from models.DNet2 import DNet2
+from models.RawNet2 import RawNet2
 
 from analytics.torchsummary import summary
 
@@ -30,6 +32,10 @@ for i_model, model in enumerate([ConvNet2(), ConvNet3(), ConvNet4(), ConvNet5(),
     summary(model, (1, 70, 1600))
     print("###############################################")
 
-model = DNet1
+model = DNet1()
 model.cuda()
-summary(model, (1, 120, 1600))
+summary(model, (3, 70, 1600))
+
+model = RawNet2()
+model.cuda()
+summary(model, (1, 1, 16000))

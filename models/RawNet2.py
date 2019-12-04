@@ -2,14 +2,24 @@ import torch.nn as nn
 import torch
 from models.helper_functions import SequenceWise, ResBlock
 
-class ConvNet2(nn.Module):
+class RawNet2(nn.Module):
     """
     Baseline.
     LibriSpeech training on train-clean-100 and train-clean-360 and dev-clean as validation reaches ~20% PER on test-clean.
     Takes 70 mel-scale features as input.
     """
     def __init__(self):
-        super(ConvNet2, self).__init__()
+        super(RawNet2, self).__init__()
+        self.n_features = 70
+        self.layerRaw1 = nn.Sequential(
+            nn.Conv1d(1, self.n_features, 251, stride=80, padding=125),  # 16
+            nn.BatchNorm1d(self.n_features),
+            nn.ReLU())
+        self.layerRaw2 = nn.Sequential(
+            nn.Conv1d(self.n_features, self.n_features, 49, stride=2, padding=24),  # 16*5
+            nn.BatchNorm1d(self.n_features),
+            nn.ReLU())
+
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 64, kernel_size=[5, 5], stride=(2, 2), padding=[0, 2]),
             nn.BatchNorm2d(64),
@@ -47,15 +57,21 @@ class ConvNet2(nn.Module):
 
     def forward(self, x, input_lengths):
         N, _, F, T_in = x.size()
-        out = self.layer1(x)
+        x = x.view(N, F, T_in)
+        out = self.layerRaw1(x)
+        out = self.layerRaw2(out)
+        out = out.unsqueeze(1)
+
+        out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
         out = self.layer3p(out)
         out = self.layer3p2(out)
         out = self.layer4(out)
 
+
         N, FM, F, T_out = out.size() # N = Batch size, FM = Feature maps, f = frequencies, t = time
-        time_refactoring = 0.25 # T_out / T_in
+        time_refactoring = 1/(80*2*2*2)  # T_out / T_in
         output_lengths = torch.ceil(input_lengths.float().mul_(time_refactoring)).int()
         out = out.view(N, FM*F, T_out)
         out = out.transpose(1, 2).transpose(0, 1).contiguous() # T x N x (F*FM)

@@ -9,7 +9,7 @@ import torch
 from models.cnn_model import ConvNet2 as Net
 import soundfile as wavfile
 from data.front_end_processing import logfbank
-from data.import_data import get_phoneme_index_dict
+from data.import_data import get_label_index_dict
 from torchvision.transforms import transforms
 import argparse
 from ctc_decoder import BeamSearchDecoder
@@ -67,7 +67,7 @@ transform = transforms.Compose(
 
 decoded_sequence, scores, timesteps, out_seq_len = evaluate_sample(spec, transform, model, decoder)
 
-_, index_phoneme_dict = get_phoneme_index_dict()
+_, index_phoneme_dict = get_label_index_dict()
 decoded_sequence = decoded_sequence.tolist()
 translated_sequence = [index_phoneme_dict[x] for x in decoded_sequence]
 print('Path: ', args.path_to_wav)

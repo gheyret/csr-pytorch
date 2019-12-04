@@ -4,6 +4,14 @@
 Phoneme dictionary used to fill blanks:  
 http://www.speech.cs.cmu.edu/cgi-bin/cmudict
 
+# LibriSpeech 4/12-2019 ->
+First few epochs ordered in increasing length of samples.  
+Extended test set by adding vocabulary.  
+
+        Net             PER         Trained on:             Val on:         Time:
+    ConvNet2            0.2729      dev-clean 90%           dev-clean 10%   9m
+    ConvNet2            0.2682      dev-clean 90%           dev-clean 10%   9m
+    
 # LibriSpeech
         Net             PER         Trained on:             Val on:         Time:
     ConvNet2            0.1945      train-clean-100/360     dev-clean       LS_extended.pt
@@ -16,6 +24,8 @@ http://www.speech.cs.cmu.edu/cgi-bin/cmudict
     ConvNet8            0.3746      dev-clean 90%           dev-clean 10%   ---
     
     ConvNet2            0.3746      dev-clean 90%           dev-clean 10%   11m
+    ConvNet2            0.3809      dev-clean 90%           dev-clean 10%   
+    ConvNet2            0.4043      dev-clean 90%           dev-clean 10%
     3, 3x skip          0.3677      dev-clean 90%           dev-clean 10%   11m
     4, 0.5x time        0.3412      dev-clean 90%           dev-clean 10%   22m
     5, varying Kernels  0.3466      dev-clean 90%           dev-clean 10%   12m
@@ -28,8 +38,13 @@ http://www.speech.cs.cmu.edu/cgi-bin/cmudict
     12, skip & vary K   0.3611      dev-clean 90%           dev-clean 10%   18m
     15, skip & vary K   0.3679      dev-clean 90%           dev-clean 10%   11m
     2, librosa          0.3617      dev-clean 90%           dev-clean 10%   9m          
-  
-  
+    16, lr=1e-3         0.4255      dev-clean 90%           dev-clean 10%   9m 
+    16, lr=1e-3         0.3901      dev-clean 90%           dev-clean 10%   11m 
+    16, lr=1e-3         0.4529      dev-clean 90%           dev-clean 10%   11m
+    16, lr=1e-3         0.4342      dev-clean 90%           dev-clean 10%   10m
+    16, lr=cyclic       0.3562      dev-clean 90%           dev-clean 10%   ?m
+    
+    
     ConvNet2            0.2515      train-clean-100 50%     dev-clean 100%  34m
     3, 3x skip          0.2452      train-clean-100 50%     dev-clean 100%  35m
     4, 0.5x time        0.2373      train-clean-100 50%     dev-clean 100%  54m
