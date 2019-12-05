@@ -24,14 +24,14 @@ parser.add_argument('--early_stopping_checkpoint_path', default='./trained_model
 parser.add_argument('--end_early_for_profiling', default=False)
 parser.add_argument('--end_early_batches', default=101)
 parser.add_argument('--early_stopping_delta', default=0.001)
-parser.add_argument('--validation_patience', default=5)
+parser.add_argument('--validation_patience', default=3)
 
 parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
-parser.add_argument('--max_training_epochs_ordered', default=5)
+parser.add_argument('--max_training_epochs_ordered', default=1)
 
-parser.add_argument('--mini_epoch_length', default=40)
-parser.add_argument('--mini_epoch_evaluate_validation', default=False)
+parser.add_argument('--mini_epoch_length', default=150)
+parser.add_argument('--mini_epoch_evaluate_validation', default=True)
 parser.add_argument('--mini_epoch_early_stopping', default=False)
 parser.add_argument('--mini_epoch_validation_partition_size', default=0.2)
 
@@ -89,28 +89,44 @@ if __name__ == "__main__":
 
     # DATALOADERS LibriSpeech:
     # Train & Validation
-    # Train on dev-clean val on part of dev-clean
-    libri_speech_dev_path = args.libri_path + "dev-clean/"
-    list_id, label_dict, missing_words = import_data_libri_speech(dataset_path=libri_speech_dev_path,
-                                                                  vocabulary_path=args.vocab_path,
-                                                                  vocabulary_path_addition=args.vocab_addition_path,
-                                                                  label_type=args.label_type)
-    list_id_train, list_id_validation, label_dict_train, label_dict_validation = randomly_partition_data(0.9, list_id,
-                                                                                                         label_dict)
 
-    list_id_train_ordered, label_dict_train_ordered = order_data_by_length(label_dict_train)
-    training_set_ordered = Dataset(list_ids=list_id_train_ordered, wavfolder_path=libri_speech_dev_path,
+    # Train on train-clean-100/360 and validation on dev-clean
+    libri_speech_dev_path_1 = args.libri_path + "train-clean-100/"  # "dev-clean/"
+    libri_speech_dev_path_2 = args.libri_path + "train-clean-360/"  # "dev-clean/"
+
+    list_id_1, label_dict_1, missing_words_1 = import_data_libri_speech(dataset_path=libri_speech_dev_path_1,
+                                                                        vocabulary_path=args.vocab_path,
+                                                                        vocabulary_path_addition=args.vocab_addition_path,
+                                                                        label_type=args.label_type)
+    list_id_2, label_dict_2, missing_words_2 = import_data_libri_speech(dataset_path=libri_speech_dev_path_2,
+                                                                        vocabulary_path=args.vocab_path,
+                                                                        vocabulary_path_addition=args.vocab_addition_path,
+                                                                        label_type=args.label_type)
+
+    list_id_train, label_dict_train, wav_path_train = concat_datasets(list_id_1, list_id_2,
+                                                                      label_dict_1, label_dict_2,
+                                                                      libri_speech_dev_path_1, libri_speech_dev_path_2)
+
+    list_id_train_ordered, label_dict_train_ordered = order_data_by_length(label_dict_2)
+    training_set_ordered = Dataset(list_ids=list_id_train_ordered, wavfolder_path=libri_speech_dev_path_2,
                                    label_dict=label_dict_train_ordered, num_features_input=args.num_features_input,
                                    use_delta_features=args.use_delta_features, input_type=args.input_type)
     params_ordered = params.copy()
     params_ordered["shuffle"] = False
     training_dataloader_ls_ordered = AudioDataLoader(training_set_ordered, **params_ordered)
 
-    training_set = Dataset(list_ids=list_id_train, wavfolder_path=libri_speech_dev_path,
+    training_set = Dataset(list_ids=list_id_train, wavfolder_path=wav_path_train,
                            label_dict=label_dict_train, num_features_input=args.num_features_input,
                            use_delta_features=args.use_delta_features, input_type=args.input_type)
     training_dataloader_ls = AudioDataLoader(training_set, **params)
-    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_dev_path,
+
+    libri_speech_path_validation = args.libri_path + "dev-clean/"  # "dev-clean/"
+    list_id_validation, label_dict_validation, missing_words_validation = import_data_libri_speech(
+                                                                          dataset_path=libri_speech_path_validation,
+                                                                          vocabulary_path=args.vocab_path,
+                                                                          vocabulary_path_addition=args.vocab_addition_path,
+                                                                          label_type=args.label_type)
+    validation_set = Dataset(list_ids=list_id_validation, wavfolder_path=libri_speech_path_validation,
                              label_dict=label_dict_validation, num_features_input=args.num_features_input,
                              use_delta_features=args.use_delta_features, input_type=args.input_type)
     validation_dataloader_ls = AudioDataLoader(validation_set, **params)
@@ -127,7 +143,8 @@ if __name__ == "__main__":
     testing_dataloader_ls = AudioDataLoader(testing_set, **params)
 
     print("Training samples/missing: {}/{}. Val samples/missing {}/{}. Test samples/missing {}/{}.".format(
-        len(list_id_train), len(missing_words), len(list_id_validation), len(missing_words), len(list_id_test), len(missing_words_test)))
+        len(list_id_train), len(missing_words_1) + len(missing_words_2), len(list_id_validation),
+        len(missing_words_validation), len(list_id_test), len(missing_words_test)))
 
     # Processor:
     # ["loss_train", "PER_train", "loss_val", "PER_val"]
@@ -159,10 +176,10 @@ if __name__ == "__main__":
                     "num_input_channels": num_input_channels, "non_linearity": args.non_linearity,
                     "rnn_bidirectional": args.rnn_bidirectional,
                     "memory_type": args.rnn_memory_type, "input_type": args.input_type}
-    model_num = [2]
-    for i_model, model in enumerate([FuncNet2(**model_kwargs)]):
+    model_num = [1, 2]
+    for i_model, model in enumerate([FuncNet1(**model_kwargs), FuncNet2(**model_kwargs)]):
         model_name = "FuncNet" + str(model_num[i_model])
-        visdom_logger_train_ls = VisdomLogger("LS dev " + model_name + " LR: cyclic (f=6): " + str(args.learning_rate),
+        visdom_logger_train_ls = VisdomLogger("LS 460 " + model_name + " GRU,f=40d/d2",
                                               ["loss_train", "PER_train", "loss_val", "PER_val"], 10)
         processor_ls = InstructionsProcessor(model, training_dataloader_ls, validation_dataloader_ls,
                                              training_dataloader_ordered=training_dataloader_ls_ordered,
@@ -180,18 +197,17 @@ if __name__ == "__main__":
         # processor_ls.load_model("./trained_models/LS_ConvNet" + str(model_num[i_model]) + ".pt")
         #processor_ls.load_model("./trained_models/LS_460ConvNet2.pt")
         # processor_ls.load_model("./trained_models/checkpoint.pt")
-        processor_ls.train_model(visdom_logger_train_ls, args.mini_epoch_validation_partition_size,
-                                 args.mini_epoch_evaluate_validation,
-                                 args.mini_epoch_early_stopping, ordered=True, verbose=True)
-        processor_ls.train_model(visdom_logger_train_ls, args.mini_epoch_validation_partition_size,
-                                 args.mini_epoch_evaluate_validation,
-                                 args.mini_epoch_early_stopping, ordered=False, verbose=True)
-        #processor_ls.save_model("./trained_models/LS_" + model_name + ".pt")
-
-
+        #processor_ls.train_model(visdom_logger_train_ls, args.mini_epoch_validation_partition_size,
+        #                         args.mini_epoch_evaluate_validation,
+        #                         args.mini_epoch_early_stopping, ordered=True, verbose=False)
+        #processor_ls.train_model(visdom_logger_train_ls, args.mini_epoch_validation_partition_size,
+        #                         args.mini_epoch_evaluate_validation,
+        #                         args.mini_epoch_early_stopping, ordered=False, verbose=False)
+        #processor_ls.load_model("./trained_models/checkpoint.pt")
+        #processor_ls.save_model("./trained_models/LS_460" + model_name + ".pt")
         print("Evaluating on test data for " + model_name + ":")
         processor_ls.load_model("./trained_models/checkpoint.pt")
-        processor_ls.evaluate_model(testing_dataloader_ls, use_early_stopping=False, epoch=-1, verbose=True)
+        processor_ls.evaluate_model(testing_dataloader_ls, use_early_stopping=False, verbose=True)
         early_stopper.reset()
 
     if use_cuda:

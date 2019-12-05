@@ -23,6 +23,7 @@ def cyclical_lr(stepsize, max_lr=1e-3, min_lr=3e-4):
 
     return lr_lambda
 
+
 class InstructionsProcessor(object):
 
     def __init__(self, model_input, training_dataloader, validation_dataloader, training_dataloader_ordered=None,
@@ -42,16 +43,16 @@ class InstructionsProcessor(object):
             self.training_dataloader_ordered = training_dataloader_ordered
             self.max_epochs_training_ordered = max_epochs_training_ordered
         self.validation_dataloader = validation_dataloader
+        self.total_time = 0
+        self.epoch = -1
 
-
-        #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
+        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)  # , weight_decay=1e-4
         self.criterion = nn.CTCLoss(zero_infinity=True, reduction='mean')
         if learning_rate_mode == 'cyclic':
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1)  # , weight_decay=1e-4
-            step_size = 4*len(self.training_dataloader)
-            min_lr = learning_rate/6.0
-            clr = cyclical_lr(step_size, max_lr=learning_rate, min_lr=learning_rate/6.0)
+            step_size = 0.25 * len(self.training_dataloader)
+            clr = cyclical_lr(step_size, max_lr=learning_rate, min_lr=learning_rate / 6.0)
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, [clr])
         else:
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)  # , weight_decay=1e-4
@@ -71,7 +72,6 @@ class InstructionsProcessor(object):
         will increase form start_lr to end_lr in an exponential fashion.
         :return:
         '''
-
 
         lr_lambda = lambda x: math.exp(
             x * math.log(end_lr / start_lr) / (lr_find_epochs * (len(self.training_dataloader))))
@@ -127,7 +127,6 @@ class InstructionsProcessor(object):
         for g in self.optimizer.param_groups:
             g['lr'] = old_lr
 
-
     def process_batch_evaluation(self, local_data, losses, edit_distances):
         '''
         Perform the forward pass for the batch for the purpose of evaluating performance.
@@ -153,7 +152,7 @@ class InstructionsProcessor(object):
         edit_distances.append(edit_distance)
         return losses, edit_distances
 
-    def process_batch_training(self, local_data, epoch, batch_i):
+    def process_batch_training(self, local_data, batch_i):
         '''
         Perform the forward and backward passes for the batch for the purpose of training.
         :param local_data: Input data for this batch.
@@ -164,7 +163,7 @@ class InstructionsProcessor(object):
         local_batch, local_targets, local_input_percentages, local_target_lengths = local_data
         input_lengths = local_input_percentages.mul_(int(local_batch.size(3))).int()
 
-        if epoch == 0 & batch_i == 0:
+        if self.epoch == 0 & batch_i == 0:
             logger_args = [local_batch, input_lengths]
             # logger.add_model_graph(model, logger_args)  # Can't get model graph to work with RNN...
 
@@ -186,8 +185,8 @@ class InstructionsProcessor(object):
         return outputs, output_lengths, local_targets, local_target_lengths, batch_loss
 
     def evaluate_training_progress(self, batch_i, outputs, output_lengths, local_targets,
-                                   local_target_lengths, batch_loss, train_losses, edit_distances,
-                                   epoch, n_training_batches, verbose=False, visdom_logger_train=None):
+                                   local_target_lengths, batch_loss, train_losses, edit_distances, n_training_batches,
+                                   verbose=False, visdom_logger_train=None):
         '''
         Function called during training that evaluates the current progress of the model and collects data for tracking.
         :param batch_i: Current batch index
@@ -213,17 +212,15 @@ class InstructionsProcessor(object):
 
         if visdom_logger_train is not None:
             visdom_logger_train.add_value(["loss_train", "PER_train"], [batch_loss, edit_distance])
-            visdom_logger_train.update()
         train_losses.append(batch_loss)
         edit_distances.append(edit_distance)
-
 
         self.tensorboard_logger.update_scalar('continuous/loss', batch_loss)
         # visdom_logger.update(batch_loss, edit_distance)
         if verbose:
             print('Evaluated: ', evaluated_label)
             print('True:      ', true_label)
-            self.print_metrics(current_epoch=epoch, current_batch=batch_i, total_batches=n_training_batches,
+            self.print_metrics(current_batch=batch_i, total_batches=n_training_batches,
                                loss=batch_loss,
                                edit_distance=edit_distance, start_time=self.batch_time,
                                max_epochs=self.max_epochs_training,
@@ -260,32 +257,35 @@ class InstructionsProcessor(object):
             visdom_logger_val_evaluate = visdom_logger_train
 
         print('Function train_model called by: ', repr(__name__))
-        total_time = time.time()
+        if self.total_time == 0:
+            self.total_time = time.time()
 
         n_training_batches = len(training_dataloader)
         print("Starting training:")
         self.batch_time = time.time()
         for epoch in range(max_epochs_training):
+            self.epoch += 1
             # Training
             self.model.train()
             train_losses = []
             train_edit_distances = []
             if verbose:
-                print("Epoch ", epoch, "/", max_epochs_training, " starting.")
+                print("Epoch ", self.epoch, "/", max_epochs_training, " starting.")
             for batch_i, (local_data) in enumerate(training_dataloader, 0):
                 outputs, output_lengths, local_targets, local_target_lengths, batch_loss = self.process_batch_training(
-                                                                                 local_data, epoch, batch_i)
+                    local_data, batch_i)
                 if (batch_i + 1) % self.mini_epoch_length == 0:
-                        train_losses, train_edit_distances = self.evaluate_training_progress(batch_i, outputs,
-                                                                                   output_lengths, local_targets,
-                                                                                   local_target_lengths,
-                                                                                   batch_loss, train_losses, train_edit_distances,
-                                                                                   epoch, n_training_batches, verbose,
-                                                                                   visdom_logger_train=visdom_logger_train_evaluate)
-                        if mini_epoch_evaluate_validation:
-                            self.evaluate_model(self.validation_dataloader, use_early_stopping=mini_epoch_early_stopping, epoch=epoch,
-                                                visdom_logger=visdom_logger_train, verbose=verbose, part=mini_epoch_validation_partition_size)
-                            visdom_logger_train.update()
+                    train_losses, train_edit_distances = self.evaluate_training_progress(batch_i, outputs,
+                                                                                         output_lengths, local_targets,
+                                                                                         local_target_lengths,
+                                                                                         batch_loss, train_losses,
+                                                                                         train_edit_distances,
+                                                                                         n_training_batches, verbose,
+                                                                                         visdom_logger_train=visdom_logger_train_evaluate)
+                    if mini_epoch_evaluate_validation:
+                        self.evaluate_model(self.validation_dataloader, use_early_stopping=mini_epoch_early_stopping,
+                                            visdom_logger=visdom_logger_train, verbose=verbose,
+                                            part=mini_epoch_validation_partition_size)
 
                 self.early_stopping.exit_program_early()
                 if self.early_stopping.stop_program:
@@ -300,19 +300,19 @@ class InstructionsProcessor(object):
                 break
 
             # Validation
-            self.evaluate_model(self.validation_dataloader, use_early_stopping=True, epoch=epoch,
+            self.evaluate_model(self.validation_dataloader, use_early_stopping=True,
                                 visdom_logger=visdom_logger_val_evaluate, verbose=verbose)
 
             if self.early_stopping.stop_training_early:
                 print("Early stopping")
                 break
         print('Finished Training')
-        tot_time = time.time() - total_time
-        print("Total training time {:.0f}h, {:.0f}m, {:.0f}s".format(numpy.floor(tot_time/3600),
-                                                                     numpy.floor((tot_time % 3600)/60),
+        tot_time = time.time() - self.total_time
+        print("Total training time {:.0f}h, {:.0f}m, {:.0f}s".format(numpy.floor(tot_time / 3600),
+                                                                     numpy.floor((tot_time % 3600) / 60),
                                                                      numpy.floor(((tot_time % 3600) % 60))))
 
-    def evaluate_model(self, data_dataloader, use_early_stopping, epoch, visdom_logger=None, verbose=False, part=1.0):
+    def evaluate_model(self, data_dataloader, use_early_stopping, visdom_logger=None, verbose=False, part=1.0):
         n_dataloader_batches = len(data_dataloader)
         with torch.set_grad_enabled(False):
             self.model.eval()
@@ -323,7 +323,7 @@ class InstructionsProcessor(object):
             for batch_i, (local_data) in enumerate(data_dataloader):
                 eval_losses, eval_edit_distances = self.process_batch_evaluation(local_data, eval_losses,
                                                                                  eval_edit_distances)
-                if batch_i/num_batches > part:
+                if batch_i / num_batches > part:
                     break
             self.model.train()
             eval_loss = numpy.average(eval_losses)
@@ -336,7 +336,7 @@ class InstructionsProcessor(object):
             if use_early_stopping:
                 self.early_stopping(eval_loss, self.model)
             if verbose:
-                self.print_metrics(current_epoch=epoch, current_batch=n_dataloader_batches - 1,
+                self.print_metrics(current_batch=batch_i - 1,
                                    total_batches=n_dataloader_batches,
                                    loss=eval_loss, edit_distance=eval_edit_distance, start_time=self.batch_time,
                                    max_epochs=self.max_epochs_training,
@@ -361,10 +361,10 @@ class InstructionsProcessor(object):
             print(' Not using CUDA ')
         print("#######################################")
 
-    def print_metrics(self, current_epoch, current_batch, total_batches, loss, edit_distance, start_time, max_epochs,
+    def print_metrics(self, current_batch, total_batches, loss, edit_distance, start_time, max_epochs,
                       batch_size, print_frequency):
         print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Edit Distance: {:.4f}, Time: {:.2f}s, Sample/s: {:.2f}'
-              .format(current_epoch + 1, max_epochs, current_batch + 1, total_batches, loss,
+              .format(self.epoch, max_epochs, current_batch + 1, total_batches, loss,
                       edit_distance, (time.time() - start_time),
                       batch_size * print_frequency / (time.time() - start_time)))
 

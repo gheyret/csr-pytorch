@@ -41,9 +41,9 @@ model = RawNet2()
 model.cuda()
 summary(model, (1, 1, 16000))
 
-model = FuncNet1(num_features_input=80)
+model = FuncNet1(num_features_input=40, num_input_channels=3)
 model.cuda()
-summary(model, (1, 80, 1600))
+summary(model, (3, 40, 1600))
 
 model = FuncNet2(num_features_input=40, num_input_channels=3)
 model.cuda()
