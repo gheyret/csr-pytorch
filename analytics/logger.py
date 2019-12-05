@@ -11,6 +11,7 @@ class VisdomLogger(object):
             print("Visdom server must be started, use: 'python -m visdom.server' in terminal")
 
         self.opts = dict(title=title, ylabel='', xlabel='Batch', legend=keys)
+        self.title = title
         self.viz_window = None
         self.epochs = torch.arange(0, num_epochs_init)
         self.visdom_plotter = True

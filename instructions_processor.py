@@ -3,14 +3,20 @@ import torch.nn as nn
 import sys
 import time
 import numpy
+
+from analytics.logger import VisdomLogger
 from ctc_decoder import BeamSearchDecoder
 import math
 
 
 def cyclical_lr(stepsize, max_lr=1e-3, min_lr=3e-4):
+    '''
+    Cyclical learning rate. Starts at min_lr and increases linearly to max_lr over stepsize iteartions. Then it decreases
+    linearily to min_lr over stepsize iterations and repeats. The max_lr is for each cycle decreased by scaler.
+    '''
     # https://towardsdatascience.com/adaptive-and-cyclical-learning-rates-using-pytorch-2bf904d18dee
     # Scaler: we can adapt this if we do not want the triangular CLR
-    scaler = lambda x: 1.
+    scaler = lambda x: 0.9**(x-1)
 
     # Lambda function to calculate the LR
     lr_lambda = lambda it: min_lr + (max_lr - min_lr) * relative(it, stepsize)
@@ -23,13 +29,23 @@ def cyclical_lr(stepsize, max_lr=1e-3, min_lr=3e-4):
 
     return lr_lambda
 
+def decaying_lr(stepsize=250000, max_lr=1e-3, min_lr=3e-4):
+    '''
+    Linearly decaying learning_rate. Starts at max_lr and decreases linearily to min_lr over stepsize iterations.
+    '''
+    # Lambda function to calculate the LR
+    lr_lambda = lambda it: min_lr + (max_lr-min_lr)*max(0, (1-it/stepsize))
+    return lr_lambda
 
 class InstructionsProcessor(object):
 
     def __init__(self, model_input, training_dataloader, validation_dataloader, training_dataloader_ordered=None,
                  batch_size=32, max_epochs_training=500, max_epochs_training_ordered=5, learning_rate=1e-3,
-                 learning_rate_mode='fixed', using_cuda=False, early_stopping=None,
-                 tensorboard_logger=None, mini_epoch_length=20):
+                 learning_rate_mode='fixed',
+                 min_learning_rate_factor=6.0,
+                 learning_rate_step_size=5,
+                 using_cuda=False, early_stopping=None,
+                 tensorboard_logger=None, mini_epoch_length=20, visdom_logger_train=None, track_learning_rate=False):
         self.model = model_input
         self.batch_size = batch_size
         self.use_cuda = using_cuda
@@ -45,15 +61,28 @@ class InstructionsProcessor(object):
         self.validation_dataloader = validation_dataloader
         self.total_time = 0
         self.epoch = -1
+        if visdom_logger_train is not None:
+            self.visdom_logger_train = visdom_logger_train
+            logger_title = self.visdom_logger_train.title
+        else:
+            logger_title = "Learning rate of training"
+
+        self.track_learning_rate = track_learning_rate
+        if track_learning_rate:
+            self.visdom_learning_rate_logger = VisdomLogger(logger_title, ["learning_rate", "learning_rate"], 10)
 
         # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=learning_rate, momentum=0.9)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)  # , weight_decay=1e-4
         self.criterion = nn.CTCLoss(zero_infinity=True, reduction='mean')
-        if learning_rate_mode == 'cyclic':
+        if learning_rate_mode is 'cyclic':
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1)  # , weight_decay=1e-4
-            step_size = 0.25 * len(self.training_dataloader)
-            clr = cyclical_lr(step_size, max_lr=learning_rate, min_lr=learning_rate / 6.0)
+            step_size = learning_rate_step_size * len(self.training_dataloader)
+            clr = cyclical_lr(step_size, max_lr=learning_rate, min_lr=learning_rate / min_learning_rate_factor)
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, [clr])
+        elif learning_rate_mode is 'decaying':
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1)  # , weight_decay=1e-4
+            step_size = learning_rate_step_size * len(self.training_dataloader)
+            dec = decaying_lr(stepsize=step_size, max_lr=learning_rate, min_lr=learning_rate / min_learning_rate_factor)
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, [dec])
         else:
             self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)  # , weight_decay=1e-4
             self.scheduler = None
@@ -62,6 +91,37 @@ class InstructionsProcessor(object):
             self.model.cuda()
 
         self.batch_time = time.time()
+
+    def test_learning_rate_lambda(self, learning_rate_mode='cyclic', max_lr=1e-3, factor=6.0, step_size_factor=1, test_epochs=10):
+        '''
+        Used to get an overview  of how the learning_rate will behave over epochs
+        '''
+        if learning_rate_mode is 'cyclic':
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1)  # , weight_decay=1e-4
+            step_size = step_size_factor * len(self.training_dataloader)
+            clr = cyclical_lr(step_size, max_lr=max_lr, min_lr=max_lr / factor)
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, [clr])
+
+        if learning_rate_mode is 'decaying':
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1)  # , weight_decay=1e-4
+            step_size = step_size_factor * len(self.training_dataloader)
+            dec = decaying_lr(stepsize=step_size, max_lr=max_lr, min_lr=max_lr / factor)
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, [dec])
+
+        learning_rates = []
+        for i in range(test_epochs*len(self.training_dataloader)):
+            for g in self.optimizer.param_groups:
+                learning_rate = g['lr']
+            learning_rates.append(learning_rate)
+            self.optimizer.step()
+            if self.scheduler is not None:
+                self.scheduler.step()
+
+        import matplotlib.pyplot as plt
+        plt.figure(1)
+        plt.plot(learning_rates)
+        plt.show()
+
 
     def find_learning_rate(self, start_lr, end_lr, lr_find_epochs):
         '''
@@ -144,6 +204,8 @@ class InstructionsProcessor(object):
         # Run the forward pass
         outputs, output_lengths = self.model(local_batch, input_lengths)
         loss = self.criterion(outputs, local_targets, output_lengths, local_target_lengths)  # CTC loss function
+
+
         losses.append(loss.item())
 
         decoded_sequence, _, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
@@ -156,7 +218,6 @@ class InstructionsProcessor(object):
         '''
         Perform the forward and backward passes for the batch for the purpose of training.
         :param local_data: Input data for this batch.
-        :param epoch: Current epoch index.
         :param batch_i: Current batch index.
         :return:
         '''
@@ -174,6 +235,8 @@ class InstructionsProcessor(object):
         outputs, output_lengths = self.model(local_batch, input_lengths)
         # Compute loss
         loss = self.criterion(outputs, local_targets, output_lengths, local_target_lengths)
+
+
         batch_loss = loss.item()
         # Backpropagation and perform Adam optimisation
         self.optimizer.zero_grad()
@@ -230,7 +293,7 @@ class InstructionsProcessor(object):
         self.batch_time = time.time()
         return train_losses, edit_distances
 
-    def train_model(self, visdom_logger_train, mini_epoch_validation_partition_size, mini_epoch_evaluate_validation,
+    def train_model(self, mini_epoch_validation_partition_size, mini_epoch_evaluate_validation,
                     mini_epoch_early_stopping, ordered=False, verbose=False):
         '''
         Function called to initiate training on self.model using the parameters specified in initialization.
@@ -242,6 +305,7 @@ class InstructionsProcessor(object):
         :param verbose:
         :return:
         '''
+        # Todo: Clean up the logging to make this section easier to read.
         if ordered:
             max_epochs_training = self.max_epochs_training_ordered
             training_dataloader = self.training_dataloader_ordered
@@ -250,14 +314,14 @@ class InstructionsProcessor(object):
             training_dataloader = self.training_dataloader
 
         if mini_epoch_evaluate_validation:
-            visdom_logger_train_evaluate = visdom_logger_train
+            visdom_logger_train_evaluate = self.visdom_logger_train
             visdom_logger_val_evaluate = None
         else:
             visdom_logger_train_evaluate = None
-            visdom_logger_val_evaluate = visdom_logger_train
+            visdom_logger_val_evaluate = self.visdom_logger_train
 
         print('Function train_model called by: ', repr(__name__))
-        if self.total_time == 0:
+        if self.total_time == 0:  # Set the total_time to the start of the first training.
             self.total_time = time.time()
 
         n_training_batches = len(training_dataloader)
@@ -274,6 +338,7 @@ class InstructionsProcessor(object):
             for batch_i, (local_data) in enumerate(training_dataloader, 0):
                 outputs, output_lengths, local_targets, local_target_lengths, batch_loss = self.process_batch_training(
                     local_data, batch_i)
+
                 if (batch_i + 1) % self.mini_epoch_length == 0:
                     train_losses, train_edit_distances = self.evaluate_training_progress(batch_i, outputs,
                                                                                          output_lengths, local_targets,
@@ -284,9 +349,13 @@ class InstructionsProcessor(object):
                                                                                          visdom_logger_train=visdom_logger_train_evaluate)
                     if mini_epoch_evaluate_validation:
                         self.evaluate_model(self.validation_dataloader, use_early_stopping=mini_epoch_early_stopping,
-                                            visdom_logger=visdom_logger_train, verbose=verbose,
+                                            visdom_logger=self.visdom_logger_train, verbose=verbose,
                                             part=mini_epoch_validation_partition_size)
-
+                        if self.track_learning_rate:
+                            for g in self.optimizer.param_groups:
+                                learning_rate = g['lr']
+                            self.visdom_learning_rate_logger.add_value(["learning_rate"], [learning_rate])
+                            self.visdom_learning_rate_logger.update()
                 self.early_stopping.exit_program_early()
                 if self.early_stopping.stop_program:
                     break
@@ -294,7 +363,7 @@ class InstructionsProcessor(object):
             if not mini_epoch_evaluate_validation:
                 train_loss = numpy.average(train_losses)
                 train_edit_distance = numpy.average(train_edit_distances)
-                visdom_logger_train.add_value(["loss_train", "PER_train"], [train_loss, train_edit_distance])
+                self.visdom_logger_train.add_value(["loss_train", "PER_train"], [train_loss, train_edit_distance])
 
             if self.early_stopping.stop_program:
                 break
@@ -302,6 +371,12 @@ class InstructionsProcessor(object):
             # Validation
             self.evaluate_model(self.validation_dataloader, use_early_stopping=True,
                                 visdom_logger=visdom_logger_val_evaluate, verbose=verbose)
+            if (not mini_epoch_evaluate_validation) & self.track_learning_rate:
+                for g in self.optimizer.param_groups:
+                    learning_rate = g['lr']
+                self.visdom_learning_rate_logger.add_value(["learning_rate"], [learning_rate])
+                self.visdom_learning_rate_logger.update()
+
 
             if self.early_stopping.stop_training_early:
                 print("Early stopping")
@@ -314,6 +389,7 @@ class InstructionsProcessor(object):
 
     def evaluate_model(self, data_dataloader, use_early_stopping, visdom_logger=None, verbose=False, part=1.0):
         n_dataloader_batches = len(data_dataloader)
+        #Todo: Add comments
         with torch.set_grad_enabled(False):
             self.model.eval()
             self.batch_time = time.time()
@@ -336,7 +412,7 @@ class InstructionsProcessor(object):
             if use_early_stopping:
                 self.early_stopping(eval_loss, self.model)
             if verbose:
-                self.print_metrics(current_batch=batch_i - 1,
+                self.print_metrics(current_batch=batch_i,
                                    total_batches=n_dataloader_batches,
                                    loss=eval_loss, edit_distance=eval_edit_distance, start_time=self.batch_time,
                                    max_epochs=self.max_epochs_training,

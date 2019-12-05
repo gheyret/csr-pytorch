@@ -6,6 +6,7 @@ Created on Wed Sep 25 00:07:06 2019
 """
 from models.FuncNet1 import FuncNet1
 from models.FuncNet2 import FuncNet2
+from models.FuncNet3 import FuncNet3
 from models.ConvNet3 import ConvNet3
 from models.ConvNet4 import ConvNet4
 from models.ConvNet5 import ConvNet5
@@ -46,5 +47,9 @@ model.cuda()
 summary(model, (3, 40, 1600))
 
 model = FuncNet2(num_features_input=40, num_input_channels=3)
+model.cuda()
+summary(model, (3, 40, 1600))
+
+model = FuncNet3(num_features_input=40, num_input_channels=3)
 model.cuda()
 summary(model, (3, 40, 1600))
