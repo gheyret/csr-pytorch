@@ -19,7 +19,8 @@ Extended test set by adding vocabulary.
     F1, GRU, f=40&d&d2  0.2552      dev-clean 90%           dev-clean 10%   6m     
     F2, GRU, f=40&d&d2  0.2527      dev-clean 90%           dev-clean 10%   15m    
     
-    F1, GRU, f=40&d&d2  0.0830      train-clean-460         dev-clean 100%  2h 33m            
+    F1, GRU, f=40&d&d2, cyc'steady  0.0830      train-clean-460         dev-clean 100%  2h 33m
+    F1, GRU, f=40&d&d2  cyc'decr    0.0581      train-clean-460         dev-clean 100%  6h 15m      
 # LibriSpeech
         Net             PER         Trained on:             Val on:         Time:
     ConvNet2            0.1945      train-clean-100/360     dev-clean       LS_extended.pt

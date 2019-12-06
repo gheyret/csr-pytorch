@@ -16,7 +16,7 @@ def cyclical_lr(stepsize, max_lr=1e-3, min_lr=3e-4):
     '''
     # https://towardsdatascience.com/adaptive-and-cyclical-learning-rates-using-pytorch-2bf904d18dee
     # Scaler: we can adapt this if we do not want the triangular CLR
-    scaler = lambda x: 0.9**(x-1)
+    scaler = lambda x: 0.85**(x-1)
 
     # Lambda function to calculate the LR
     lr_lambda = lambda it: min_lr + (max_lr - min_lr) * relative(it, stepsize)
