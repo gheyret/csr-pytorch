@@ -63,11 +63,7 @@ class Dataset(data.Dataset):
         file_name = self.list_ids[index]
 
         if self.wavfolder_is_dict:
-            start_idx = 0
-            for key in self.wavfolder_path.keys():
-                if (index >= start_idx) & (index < key):
-                    wav_path = self.wavfolder_path[key] + file_name
-                start_idx = key
+            wav_path = self.wavfolder_path[file_name]
         else:
             wav_path = self.wavfolder_path + file_name
 

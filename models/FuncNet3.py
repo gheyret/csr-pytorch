@@ -6,7 +6,8 @@ import math
 class FuncNet3(nn.Module):
     """
     Adaptive layout.
-
+    Same as FuncNet1 but with more feature maps at the end of CNN. with 3x40 input will have 512*3 input units while
+    FuncNet1 has 512*1 input units.
     """
     def __init__(self, num_classes=46, num_features_input=70, num_input_channels=1, non_linearity='ReLU',
                  memory_type='GRU', rnn_bidirectional=False, input_type='features'):

@@ -1,4 +1,4 @@
-from data.import_data import import_data_gsc
+from data.data_importer import import_data_gsc
 import os
 import csv
 from os.path import dirname

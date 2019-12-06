@@ -143,7 +143,7 @@ def beam_ctc_decode(probs, beam_size=5, blank=0):
 
 
 class BeamSearchDecoder(object):
-    def __init__(self, beam_width=10, label_list=None):
+    def __init__(self, num_classes, beam_width=10, label_list=None):
         self.beam_width = beam_width
 
         # ctcdecode accepts only single char labels, so a dummy list is needed to map to phonemes
@@ -154,6 +154,13 @@ class BeamSearchDecoder(object):
         #              'EY', 'F',
         #              'G', 'H', 'IH', 'IY', 'IYR', 'JH', 'K', 'L', 'M', 'N', 'NG', 'O', 'OW', 'OY', 'P', 'R', 'S',
         #              'SH', 'T', 'TH', 'UH', 'UHR', 'UW', 'V', 'W', 'Y', 'Z', 'ZH']
+
+        assert len(self.dummy_label_list) >= num_classes, "Need to add elements to dummy label. Label len: {}, " \
+                                                         "num_classes: {}".format(len(self.dummy_label_list), num_classes)
+        self.dummy_label_list = self.dummy_label_list[:num_classes]
+        assert len(self.dummy_label_list) == num_classes, "Fewer classes than in dummy listLabel len: {}, " \
+                                                         "num_classes: {}".format(len(self.dummy_label_list), num_classes)
+
         label_dict = dict()
         for i, x in enumerate(self.dummy_label_list):
             label_dict[i] = x

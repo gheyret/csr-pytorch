@@ -16,7 +16,7 @@ def cyclical_lr(stepsize, max_lr=1e-3, min_lr=3e-4):
     '''
     # https://towardsdatascience.com/adaptive-and-cyclical-learning-rates-using-pytorch-2bf904d18dee
     # Scaler: we can adapt this if we do not want the triangular CLR
-    scaler = lambda x: 0.85**(x-1)
+    scaler = lambda x: 0.85 ** (x - 1)
 
     # Lambda function to calculate the LR
     lr_lambda = lambda it: min_lr + (max_lr - min_lr) * relative(it, stepsize)
@@ -29,13 +29,15 @@ def cyclical_lr(stepsize, max_lr=1e-3, min_lr=3e-4):
 
     return lr_lambda
 
+
 def decaying_lr(stepsize=250000, max_lr=1e-3, min_lr=3e-4):
     '''
     Linearly decaying learning_rate. Starts at max_lr and decreases linearily to min_lr over stepsize iterations.
     '''
     # Lambda function to calculate the LR
-    lr_lambda = lambda it: min_lr + (max_lr-min_lr)*max(0, (1-it/stepsize))
+    lr_lambda = lambda it: min_lr + (max_lr - min_lr) * max(0, (1 - it / stepsize))
     return lr_lambda
+
 
 class InstructionsProcessor(object):
 
@@ -44,6 +46,7 @@ class InstructionsProcessor(object):
                  learning_rate_mode='fixed',
                  min_learning_rate_factor=6.0,
                  learning_rate_step_size=5,
+                 num_classes=None,
                  using_cuda=False, early_stopping=None,
                  tensorboard_logger=None, mini_epoch_length=20, visdom_logger_train=None, track_learning_rate=False):
         self.model = model_input
@@ -51,7 +54,7 @@ class InstructionsProcessor(object):
         self.use_cuda = using_cuda
         self.early_stopping = early_stopping
         self.tensorboard_logger = tensorboard_logger
-        self.decoder = BeamSearchDecoder()
+        self.decoder = BeamSearchDecoder(num_classes)
         self.mini_epoch_length = mini_epoch_length
         self.max_epochs_training = max_epochs_training
         self.training_dataloader = training_dataloader
@@ -92,7 +95,8 @@ class InstructionsProcessor(object):
 
         self.batch_time = time.time()
 
-    def test_learning_rate_lambda(self, learning_rate_mode='cyclic', max_lr=1e-3, factor=6.0, step_size_factor=1, test_epochs=10):
+    def test_learning_rate_lambda(self, learning_rate_mode='cyclic', max_lr=1e-3, factor=6.0, step_size_factor=1,
+                                  test_epochs=10):
         '''
         Used to get an overview  of how the learning_rate will behave over epochs
         '''
@@ -109,7 +113,7 @@ class InstructionsProcessor(object):
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, [dec])
 
         learning_rates = []
-        for i in range(test_epochs*len(self.training_dataloader)):
+        for i in range(test_epochs * len(self.training_dataloader)):
             for g in self.optimizer.param_groups:
                 learning_rate = g['lr']
             learning_rates.append(learning_rate)
@@ -121,7 +125,6 @@ class InstructionsProcessor(object):
         plt.figure(1)
         plt.plot(learning_rates)
         plt.show()
-
 
     def find_learning_rate(self, start_lr, end_lr, lr_find_epochs):
         '''
@@ -205,7 +208,6 @@ class InstructionsProcessor(object):
         outputs, output_lengths = self.model(local_batch, input_lengths)
         loss = self.criterion(outputs, local_targets, output_lengths, local_target_lengths)  # CTC loss function
 
-
         losses.append(loss.item())
 
         decoded_sequence, _, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
@@ -235,7 +237,6 @@ class InstructionsProcessor(object):
         outputs, output_lengths = self.model(local_batch, input_lengths)
         # Compute loss
         loss = self.criterion(outputs, local_targets, output_lengths, local_target_lengths)
-
 
         batch_loss = loss.item()
         # Backpropagation and perform Adam optimisation
@@ -377,7 +378,6 @@ class InstructionsProcessor(object):
                 self.visdom_learning_rate_logger.add_value(["learning_rate"], [learning_rate])
                 self.visdom_learning_rate_logger.update()
 
-
             if self.early_stopping.stop_training_early:
                 print("Early stopping")
                 break
@@ -389,7 +389,7 @@ class InstructionsProcessor(object):
 
     def evaluate_model(self, data_dataloader, use_early_stopping, visdom_logger=None, verbose=False, part=1.0):
         n_dataloader_batches = len(data_dataloader)
-        #Todo: Add comments
+        # Todo: Add comments
         with torch.set_grad_enabled(False):
             self.model.eval()
             self.batch_time = time.time()

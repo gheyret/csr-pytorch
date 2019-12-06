@@ -9,7 +9,7 @@ import torch
 from models.cnn_model import ConvNet2 as Net
 import soundfile as wavfile
 from data.front_end_processing import logfbank
-from data.import_data import get_label_index_dict
+from data.data_importer import get_label_index_dict
 from torchvision.transforms import transforms
 import argparse
 from ctc_decoder import BeamSearchDecoder

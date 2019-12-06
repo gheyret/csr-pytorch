@@ -3,34 +3,50 @@ import csv
 from xml.dom import minidom
 
 
+
 def concat_datasets(list_id_first, list_id_second, label_dict_first, label_dict_second, wav_path_first,
                     wav_path_second):
-    n_samples_first = len(list_id_first)
-    n_samples_second = len(list_id_second) + n_samples_first
+    '''
+    Takes list_id and label_dict from two sources and concatenates them into one output for each.
+    If this function has already been used, then the wav_path will be a dict. If that is the case, extend the dict.
+    Otherwise create a new dict.
+    '''
+    if type(wav_path_first) is not dict:
+        wav_path = dict()
+        for id in list_id_first:
+            wav_path[id] = wav_path_first
+    else:
+        wav_path = wav_path_first.copy()
+    for id in list_id_second:
+        wav_path[id] = wav_path_second
+
+
     list_id = list_id_first.copy()
     list_id.extend(list_id_second)
     label_dict = label_dict_first.copy()
     label_dict.update(label_dict_second)
-    if type(wav_path_first) is dict:
-        wav_path = wav_path_first.copy()
-        wav_path[n_samples_second] = wav_path_second
-    else:
-        wav_path = {n_samples_first: wav_path_first, n_samples_second: wav_path_second}
+
     return list_id, label_dict, wav_path
-    # Todo: Make sure input of wav_path_first of type dict is handled so that it can be concat several times
-    # Todo: make sure dataloader uses the correct path. Path determined by checking if idx is lower than current key but higher than previous
+
 
 def get_num_classes(label_type='phoneme'):
     label_index_dict, index_label_dict = get_label_index_dict(label_type)
     return len(label_index_dict)
 
+
 def get_label_index_dict(label_type='phoneme'):
     if label_type is 'phoneme':
-        label_list = ['_', '-', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B',
-                      'CH', 'D', 'DH', 'EH', 'EHR', 'ER', 'EY', 'F', 'G', 'H', 'IH',
-                      'IY', 'IYR', 'JH', 'K', 'L', 'M', 'N', 'NG', 'O', 'OW',
-                      'OY', 'P', 'R', 'S', 'SH', 'T', 'TH', 'UH', 'UHR', 'UW',
-                      'V', 'W', 'Y', 'Z', 'ZH']  # - is space character
+        label_list_eng = ['_', '-', 'AA', 'AE', 'AH', 'AO', 'AW', 'AX', 'AY', 'B',
+                          'CH', 'D', 'DH', 'EH', 'EHR', 'ER', 'EY', 'F', 'G', 'H', 'IH',
+                          'IY', 'IYR', 'JH', 'K', 'L', 'M', 'N', 'NG', 'O', 'OW',
+                          'OY', 'P', 'R', 'S', 'SH', 'T', 'TH', 'UH', 'UHR', 'UW',
+                          'V', 'W', 'Y', 'Z', 'ZH']  # - is space character
+        label_list_cmu = ['_', '-', 'AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'B',
+                          'CH', 'D', 'DH', 'EH', 'ER', 'EY', 'F', 'G', 'HH', 'IH',
+                          'IY', 'JH', 'K', 'L', 'M', 'N', 'NG', 'OW',
+                          'OY', 'P', 'R', 'S', 'SH', 'T', 'TH', 'UH', 'UW',
+                          'V', 'W', 'Y', 'Z', 'ZH']
+        label_list = label_list_cmu
     elif label_type is 'letter':
         label_list = ['_', ' ', '\'', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                       'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
@@ -72,7 +88,140 @@ def get_word_phoneme_dictionary(vocabulary_path, xml=True):
         return word_phoneme
 
 
-def import_data_generated(dataset_path, verbose=False, train_data_partition_size=0.0):
+
+
+def csv_to_list(path_to_csv):
+    with open(path_to_csv) as csvfile:  # , newline='' in Windows
+        output_list = list(csv.reader(csvfile))
+        # output_list = numpy.asarray(output_list)[0]
+        output_list = [x[0] for x in output_list]
+        return output_list
+
+
+def csv_to_dict(path_to_csv):
+    dict_out = dict()
+    with open(path_to_csv) as csvfile:  # , newline='' in Windows
+        reader = csv.reader(csvfile)
+        for key, value in reader:
+            value = value.replace("[", "").replace("]", "")
+            value = value.split(", ")
+            value = list(map(int, value))
+            dict_out[key] = value
+        return dict_out
+
+
+def check_similiar_words(word, word_phoneme_dict, verbose):
+    '''
+    if word.endswith("less"):
+        test_word = word[:-4]
+        if test_word in word_phoneme_dict:
+            if verbose:
+                print(test_word + " exist, using that instead ++++++++++")
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
+            phoneme_list_word.extend(["L", "EH", "S"])
+            return True, phoneme_list_word
+
+    if word.endswith("ous"):
+        test_word = word[:-3]
+        if test_word in word_phoneme_dict:
+            if verbose:
+                print(test_word + " exist, using that instead ++++++++++")
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
+            phoneme_list_word.extend(["R", "AX", "S"])
+            return True, phoneme_list_word
+    '''
+    # If word ends with "ed" can try to remove this and append the phoneme for "ed" - "D" (smile/smiled)
+    if word.endswith("ed"):
+        test_word = word[:-2]
+        if test_word in word_phoneme_dict:
+            if verbose:
+                print(test_word + " exist, using that instead ++++++++++")
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
+            phoneme_list_word.append("D")
+            return True, phoneme_list_word
+
+    if word.endswith("d"):
+        test_word = word[:-1]
+        if test_word in word_phoneme_dict:
+            if verbose:
+                print(test_word + " exist, using that instead ++++++++++")
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
+            phoneme_list_word.append("D")
+            return True, phoneme_list_word
+
+    # If word ends with "s" can try to remove this and append the phoneme for "s" - "Z" (smith/smiths)
+    if word.endswith("s"):
+        test_word = word[:-1]
+        if test_word in word_phoneme_dict:
+            if verbose:
+                print(test_word + " exist, using that instead ++++++++++")
+            phoneme_list_word = word_phoneme_dict[test_word].copy()
+            phoneme_list_word.append("S")
+            return True, phoneme_list_word
+
+    return False, []
+
+
+
+
+
+def randomly_partition_data(part_size, list_id, label_dict):
+    import numpy
+    numpy.random.seed(123)
+    num_samples = len(list_id)
+    indices = numpy.random.permutation(num_samples)
+
+    split_idx = int(numpy.round(num_samples * part_size))
+    first_idx, second_idx = indices[:split_idx], indices[split_idx:]
+    list_id_first = [list_id[idx] for idx in first_idx]
+    list_id_second = [list_id[idx] for idx in second_idx]
+
+    key_list_first = [list(label_dict)[idx] for idx in first_idx]
+    label_dict_first = {key: label_dict[key] for key in key_list_first}
+
+    key_list_second = [list(label_dict)[idx] for idx in second_idx]
+    label_dict_second = {key: label_dict[key] for key in key_list_second}
+
+    return list_id_first, list_id_second, label_dict_first, label_dict_second
+
+
+def order_data_by_length(label_dict):
+    def sort_by(p):
+        return len(p[1])
+
+    sorted_list_id = []
+    sorted_label_dict = dict()
+    sorted_label_tuples = sorted(label_dict.items(), key=sort_by)
+    for file_label_tuple in sorted_label_tuples:
+        file_name = file_label_tuple[0]
+        label = file_label_tuple[1]
+        sorted_list_id.append(file_name)
+        sorted_label_dict[file_name] = label
+    return sorted_list_id, sorted_label_dict
+
+
+def print_label_distribution(label_dict):
+    import numpy
+    label_counter = numpy.zeros((2, 46))
+    total = 0
+    for i in range(0, 46):
+        label_counter[0, i] = i
+    for key, value in label_dict.items():
+        for phoneme in value:
+            label_counter[1, phoneme] += 1
+            total += 1
+    label_counter[1, :] = label_counter[1, :] / total
+
+    _, index_phoneme_dict = get_label_index_dict()
+    lines = []
+    row = label_counter[0, :]
+    lines.append('   '.join('{1:>{0}}'.format(4, index_phoneme_dict[int(x)]) for x in row))
+    row = label_counter[1, :]
+    lines.append(' '.join('{:.4f}'.format(x) for x in row))
+    print('\n'.join(lines))
+
+
+def import_data_generated(dataset_path):
     '''
 
     :param dataset_path: dataset_path directs to the folder containing the wav samples
@@ -119,6 +268,22 @@ def import_data_generated(dataset_path, verbose=False, train_data_partition_size
 
     return list_id, label_dict
 
+
+def generate_csv_gsc(dataset_path, partition_names, partition_labels):
+    for partition_type in ['test', 'validation', 'train']:
+        if not os.path.exists(dataset_path + "list_id_" + partition_type):
+            with open(dataset_path + "list_id_" + partition_type + ".csv", "w") as outfile:
+                writer = csv.writer(outfile)
+                partition = partition_names[partition_type]
+                for file_name in partition:
+                    writer.writerow([file_name])
+
+        if not os.path.exists(dataset_path + "dict_labels_" + partition_type):
+            with open(dataset_path + "dict_labels_" + partition_type + ".csv", "w") as outfile:
+                writer = csv.writer(outfile)
+                partition = partition_labels[partition_type]
+                for key, val in partition.items():
+                    writer.writerow([key, val])
 
 def encode_labels_gsc(word_id, phoneme_index_dict):
     switcher = {
@@ -241,101 +406,17 @@ def import_data_gsc(dataset_path, verbose=False, train_data_partition_size=0.0):
     return partition_names, partition_labels
 
 
-def generate_csv_gsc(dataset_path, partition_names, partition_labels):
-    for partition_type in ['test', 'validation', 'train']:
-        if not os.path.exists(dataset_path + "list_id_" + partition_type):
-            with open(dataset_path + "list_id_" + partition_type + ".csv", "w") as outfile:
-                writer = csv.writer(outfile)
-                partition = partition_names[partition_type]
-                for file_name in partition:
-                    writer.writerow([file_name])
-
-        if not os.path.exists(dataset_path + "dict_labels_" + partition_type):
-            with open(dataset_path + "dict_labels_" + partition_type + ".csv", "w") as outfile:
-                writer = csv.writer(outfile)
-                partition = partition_labels[partition_type]
-                for key, val in partition.items():
-                    writer.writerow([key, val])
-
-
-def csv_to_list(path_to_csv):
-    with open(path_to_csv) as csvfile:  # , newline='' in Windows
-        output_list = list(csv.reader(csvfile))
-        # output_list = numpy.asarray(output_list)[0]
-        output_list = [x[0] for x in output_list]
-        return output_list
-
-
-def csv_to_dict(path_to_csv):
-    dict_out = dict()
-    with open(path_to_csv) as csvfile:  # , newline='' in Windows
-        reader = csv.reader(csvfile)
-        for key, value in reader:
-            value = value.replace("[", "").replace("]", "")
-            value = value.split(", ")
-            value = list(map(int, value))
-            dict_out[key] = value
-        return dict_out
-
-
-def check_similiar_words(word, word_phoneme_dict, verbose):
-    '''
-    if word.endswith("less"):
-        test_word = word[:-4]
-        if test_word in word_phoneme_dict:
-            if verbose:
-                print(test_word + " exist, using that instead ++++++++++")
-            phoneme_list_word = word_phoneme_dict[test_word].copy()
-            phoneme_list_word.extend(["L", "EH", "S"])
-            return True, phoneme_list_word
-
-    if word.endswith("ous"):
-        test_word = word[:-3]
-        if test_word in word_phoneme_dict:
-            if verbose:
-                print(test_word + " exist, using that instead ++++++++++")
-            phoneme_list_word = word_phoneme_dict[test_word].copy()
-            phoneme_list_word.extend(["R", "AX", "S"])
-            return True, phoneme_list_word
-    '''
-    # If word ends with "ed" can try to remove this and append the phoneme for "ed" - "D" (smile/smiled)
-    if word.endswith("ed"):
-        test_word = word[:-2]
-        if test_word in word_phoneme_dict:
-            if verbose:
-                print(test_word + " exist, using that instead ++++++++++")
-            phoneme_list_word = word_phoneme_dict[test_word].copy()
-            phoneme_list_word.append("D")
-            return True, phoneme_list_word
-
-    if word.endswith("d"):
-        test_word = word[:-1]
-        if test_word in word_phoneme_dict:
-            if verbose:
-                print(test_word + " exist, using that instead ++++++++++")
-            phoneme_list_word = word_phoneme_dict[test_word].copy()
-            phoneme_list_word.append("D")
-            return True, phoneme_list_word
-
-    # If word ends with "s" can try to remove this and append the phoneme for "s" - "Z" (smith/smiths)
-    if word.endswith("s"):
-        test_word = word[:-1]
-        if test_word in word_phoneme_dict:
-            if verbose:
-                print(test_word + " exist, using that instead ++++++++++")
-            phoneme_list_word = word_phoneme_dict[test_word].copy()
-            phoneme_list_word.append("S")
-            return True, phoneme_list_word
-
-    return False, []
-
-
 def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, label_index_dict,
                                   label_type, word_phoneme_dict=None, verbose=False):
+    '''
+    if label_type is 'phoneme' and word_phoneme_dict is empty. Then no translation should be given, and all words should
+    be returned as missing.
+
+    '''
     with open(txt_file, 'r') as file:
         lines = file.readlines()
         for x in lines:
-            #x = x.replace("'", "")
+            # x = x.replace("'", "")
             x = x.rstrip("\n")
             word_list = x.split(" ")
 
@@ -350,10 +431,11 @@ def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, 
                     else:
                         if verbose:
                             print(word + " doesn't exist in vocabulary ----------")
-                        found_ipa_translation, phoneme_list_word = check_similiar_words(word, word_phoneme_dict, verbose)
+                        found_ipa_translation, phoneme_list_word = check_similiar_words(word, word_phoneme_dict,
+                                                                                        verbose)
                     if not found_ipa_translation:
                         missing_words.append(word)
-                        break
+                        # break  # If break is set here, not all missing words will be found.
                     else:
                         if label_list:
                             label_list.append("-")
@@ -386,7 +468,13 @@ def parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, 
                     print("Extracted: " + label_list)
                     print("--- " + x + " | was added to the list")
 
-def import_data_libri_speech(dataset_path, vocabulary_path=None, vocabulary_path_addition=None, label_type='phoneme', verbose=False):
+
+def import_data_libri_speech(dataset_path, vocabulary_path=None, vocabulary_path_is_xml=True,
+                             vocabulary_path_addition=None, vocabulary_path_addition_is_xml=False,
+                             label_type='phoneme', verbose=False):
+    """
+
+    """
     sub_folder_list = []
     trans_txt_list = []
     for x in os.listdir(dataset_path):
@@ -396,10 +484,12 @@ def import_data_libri_speech(dataset_path, vocabulary_path=None, vocabulary_path
                     sub_folder_list.append(x + "/" + y + "/")
                     trans_txt_list.append(x + "-" + y + ".trans.txt")
 
-    if label_type is 'phoneme':
-        word_phoneme_dict = get_word_phoneme_dictionary(vocabulary_path)
+    word_phoneme_dict = dict()
+    if (label_type is 'phoneme') & (vocabulary_path is not None):
+        word_phoneme_dict = get_word_phoneme_dictionary(vocabulary_path, xml=vocabulary_path_is_xml)
         if vocabulary_path_addition is not None:
-            word_phoneme_dict2 = get_word_phoneme_dictionary(vocabulary_path_addition, xml=False)
+            word_phoneme_dict2 = get_word_phoneme_dictionary(vocabulary_path_addition,
+                                                             xml=vocabulary_path_addition_is_xml)
             word_phoneme_dict.update(word_phoneme_dict2)
     label_index_dict, _ = get_label_index_dict(label_type=label_type)
 
@@ -410,73 +500,20 @@ def import_data_libri_speech(dataset_path, vocabulary_path=None, vocabulary_path
         txt_file = dataset_path + sub_folder_list[i] + trans_txt_list[i]
         if label_type is 'phoneme':
             parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, label_index_dict,
-                                        label_type, word_phoneme_dict=word_phoneme_dict, verbose=verbose)
+                                          label_type, word_phoneme_dict=word_phoneme_dict, verbose=verbose)
         else:
             parse_trans_file_libri_speech(txt_file, sub_folder, missing_words, list_id, label_dict, label_index_dict,
-                                        label_type, word_phoneme_dict=None, verbose=verbose)
+                                          label_type, word_phoneme_dict=None, verbose=verbose)
     if verbose:
         print(len(missing_words))
         print(len(list_id))
 
     return list_id, label_dict, missing_words
 
-def randomly_partition_data(part_size, list_id, label_dict):
-    import numpy
-    numpy.random.seed(123)
-    num_samples = len(list_id)
-    indices = numpy.random.permutation(num_samples)
 
-    split_idx = int(numpy.round(num_samples*part_size))
-    first_idx, second_idx = indices[:split_idx], indices[split_idx:]
-    list_id_first = [list_id[idx] for idx in first_idx]
-    list_id_second = [list_id[idx] for idx in second_idx]
+# dataset_path = "/media/olof/SSD 1TB/data/LibriSpeech/LibriSpeech/dev-clean/"  # 84/121123"
+# vocabulary_path = "/media/olof/SSD 1TB/data/BritishEnglish_Reduced.xml"
 
-    key_list_first = [list(label_dict)[idx] for idx in first_idx]
-    label_dict_first = {key: label_dict[key] for key in key_list_first}
-
-    key_list_second = [list(label_dict)[idx] for idx in second_idx]
-    label_dict_second = {key: label_dict[key] for key in key_list_second}
-
-    return list_id_first, list_id_second, label_dict_first, label_dict_second
-
-
-def order_data_by_length(label_dict):
-    def sort_by(p):
-        return len(p[1])
-    sorted_list_id = []
-    sorted_label_dict = dict()
-    sorted_label_tuples = sorted(label_dict.items(), key=sort_by)
-    for file_label_tuple in sorted_label_tuples:
-        file_name = file_label_tuple[0]
-        label = file_label_tuple[1]
-        sorted_list_id.append(file_name)
-        sorted_label_dict[file_name] = label
-    return sorted_list_id, sorted_label_dict
-
-
-def print_label_distribution(label_dict):
-    import numpy
-    label_counter = numpy.zeros((2, 46))
-    total = 0
-    for i in range(0,46):
-        label_counter[0, i] = i
-    for key, value in label_dict.items():
-        for phoneme in value:
-            label_counter[1, phoneme] += 1
-            total += 1
-    label_counter[1,:] = label_counter[1, :]/total
-
-    _, index_phoneme_dict = get_label_index_dict()
-    lines = []
-    row = label_counter[0, :]
-    lines.append('   '.join('{1:>{0}}'.format(4, index_phoneme_dict[int(x)]) for x in row))
-    row = label_counter[1, :]
-    lines.append(' '.join('{:.4f}'.format(x) for x in row))
-    print('\n'.join(lines))
-
-#dataset_path = "/media/olof/SSD 1TB/data/LibriSpeech/LibriSpeech/dev-clean/"  # 84/121123"
-#vocabulary_path = "/media/olof/SSD 1TB/data/BritishEnglish_Reduced.xml"
-
-#list_id, label_dict, missing_words = import_data_libri_speech(dataset_path, vocabulary_path)
-#order_data_by_length(list_id, label_dict)
-#randomly_partition_data(0.8, list_id, label_dict)
+# list_id, label_dict, missing_words = import_data_libri_speech(dataset_path, vocabulary_path)
+# order_data_by_length(list_id, label_dict)
+# randomly_partition_data(0.8, list_id, label_dict)
