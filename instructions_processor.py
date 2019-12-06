@@ -210,9 +210,10 @@ class InstructionsProcessor(object):
 
         losses.append(loss.item())
 
-        decoded_sequence, _, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
+        decoded_sequence, scores, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
         edit_distance = self.decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
                                                  len(local_target_lengths))
+
         edit_distances.append(edit_distance)
         return losses, edit_distances
 
@@ -325,6 +326,8 @@ class InstructionsProcessor(object):
         if self.total_time == 0:  # Set the total_time to the start of the first training.
             self.total_time = time.time()
 
+
+
         n_training_batches = len(training_dataloader)
         print("Starting training:")
         self.batch_time = time.time()
@@ -386,6 +389,8 @@ class InstructionsProcessor(object):
         print("Total training time {:.0f}h, {:.0f}m, {:.0f}s".format(numpy.floor(tot_time / 3600),
                                                                      numpy.floor((tot_time % 3600) / 60),
                                                                      numpy.floor(((tot_time % 3600) % 60))))
+
+
 
     def evaluate_model(self, data_dataloader, use_early_stopping, visdom_logger=None, verbose=False, part=1.0):
         n_dataloader_batches = len(data_dataloader)

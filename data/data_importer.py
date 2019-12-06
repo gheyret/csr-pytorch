@@ -510,7 +510,6 @@ def import_data_libri_speech(dataset_path, vocabulary_path=None, vocabulary_path
 
     return list_id, label_dict, missing_words
 
-
 # dataset_path = "/media/olof/SSD 1TB/data/LibriSpeech/LibriSpeech/dev-clean/"  # 84/121123"
 # vocabulary_path = "/media/olof/SSD 1TB/data/BritishEnglish_Reduced.xml"
 

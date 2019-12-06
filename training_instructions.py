@@ -30,7 +30,7 @@ parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
 parser.add_argument('--max_training_epochs_ordered', default=1)
 
-parser.add_argument('--mini_epoch_length', default=40)
+parser.add_argument('--mini_epoch_length', default=1)
 parser.add_argument('--mini_epoch_evaluate_validation', default=True)
 parser.add_argument('--mini_epoch_early_stopping', default=False)
 parser.add_argument('--mini_epoch_validation_partition_size', default=0.2)
@@ -182,8 +182,8 @@ if __name__ == "__main__":
 
     #processor_kwargs = {}
 
-    model_num = [1, 2, 3]
-    for i_model, model in enumerate([FuncNet1(**model_kwargs), FuncNet2(**model_kwargs), FuncNet3(**model_kwargs)]):
+    model_num = [1]
+    for i_model, model in enumerate([FuncNet1(**model_kwargs)]):
         model_name = "FuncNet" + str(model_num[i_model])
         visdom_logger_train_ls = VisdomLogger("LS 460 " + model_name + " GRU,f=40d/d2",
                                               ["loss_train", "PER_train", "loss_val", "PER_val"], 7)
@@ -213,10 +213,10 @@ if __name__ == "__main__":
         # processor_ls.load_model("./trained_models/checkpoint.pt")
         processor_ls.train_model(args.mini_epoch_validation_partition_size,
                                  args.mini_epoch_evaluate_validation,
-                                 args.mini_epoch_early_stopping, ordered=True, verbose=True)
+                                 args.mini_epoch_early_stopping, ordered=True, verbose=False)
         processor_ls.train_model(args.mini_epoch_validation_partition_size,
                                  args.mini_epoch_evaluate_validation,
-                                 args.mini_epoch_early_stopping, ordered=False, verbose=True)
+                                 args.mini_epoch_early_stopping, ordered=False, verbose=False)
         #processor_ls.load_model("./trained_models/checkpoint.pt")
         #processor_ls.save_model("./trained_models/LS_460" + model_name + ".pt")
         print("Evaluating on test data for " + model_name + ":")
@@ -231,10 +231,8 @@ if __name__ == "__main__":
 
 # Todo: Attempt learning completely without CNN, take spec as input to rnn where input_size = num_features.
 
-# Todo: Compare losses between CTC & Pytorch_CTC
-# Todo: Perhaps simply change the loss value from pytorch_ctc to the loss computed by CTC
-
 # Todo: write imports for CommonVoice
 
 # Todo: Move back to tensorboard
+
 # Todo: Add LAS support and LAS model.
