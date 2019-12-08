@@ -1,7 +1,7 @@
 import math
 import os
 
-from data.data_importer import import_data_libri_speech
+from data.data_importer import import_data_libri_speech, import_data_common_voice_v1, import_data_common_voice_1087
 
 
 def get_unique_entires_list(input_list):
@@ -12,7 +12,7 @@ def get_unique_entires_list(input_list):
 
 def get_all_words_dataset(dataset_path, vocabulary_path=None):
     # Remember to remove the break line in parse_trans_file_libri_speech
-    list_id, label_dict, missing_words = import_data_libri_speech(dataset_path, vocabulary_path=vocabulary_path, verbose=False)
+    _, missing_words = import_data_libri_speech(dataset_path, vocabulary_path=vocabulary_path, verbose=False)
     missing_words = get_unique_entires_list(missing_words)  # Make sure they are all unique
     return missing_words
 
@@ -27,10 +27,34 @@ def get_all_words_ls(libri_speech_path, vocabulary_path=None):
     missing_words_all = get_unique_entires_list(missing_words_all)
     return missing_words_all
 
+
+def get_all_words_cv1(common_voice_path, vocabulary_path=None):
+    missing_words_all = []
+    dataset = "cv-valid-dev"
+    _, missing_words = import_data_common_voice_v1(common_voice_path, dataset, vocabulary_path=vocabulary_path)
+    missing_words_all.extend(missing_words)
+    dataset = "cv-valid-train"
+    _, missing_words = import_data_common_voice_v1(common_voice_path, dataset, vocabulary_path=vocabulary_path)
+    missing_words_all.extend(missing_words)
+    dataset = "cv-valid-test"
+    _, missing_words = import_data_common_voice_v1(common_voice_path, dataset, vocabulary_path=vocabulary_path)
+    missing_words_all.extend(missing_words)
+
+    missing_words_all = get_unique_entires_list(missing_words_all)  # Make sure they are all unique
+    return missing_words_all
+
+
+def get_all_words_cv1087(common_voice_path, vocabulary_path=None):
+    _, _, _, missing_words = import_data_common_voice_1087(common_voice_path, vocabulary_path=vocabulary_path)
+    missing_words = get_unique_entires_list(missing_words)  # Make sure they are all unique
+    return missing_words
+
+
 def write_missing_words_to_file(missing_words, destination_file):
     with open(destination_file, "w") as outfile:
         for word in missing_words:
             outfile.write(word + "\n")
+
 
 def split_missing_words_files(missing_words, destination_file, max_entries_per_file):
     num_words = len(missing_words)
@@ -39,7 +63,7 @@ def split_missing_words_files(missing_words, destination_file, max_entries_per_f
     for file_i in range(num_files):
         min_idx_current_file = (file_i) * max_entries_per_file
         max_idx_current_file = (file_i + 1) * max_entries_per_file
-        with open(destination_path + str(file_i) + ".txt", "w") as outfile:
+        with open(destination_path + "missing_words" + str(file_i) + ".txt", "w") as outfile:
             for i, word in enumerate(missing_words):
                 if (i >= min_idx_current_file) & (i < max_idx_current_file):
                     outfile.write(word + "\n")
@@ -50,14 +74,26 @@ import argparse
 parser = argparse.ArgumentParser(description="Get CMU dict")
 
 parser.add_argument('--libri_path', default='../data/LibriSpeech/')
+parser.add_argument('--cv1_path', default='../data/CommonVoice/cv_corpus_v1/')
+parser.add_argument('--cv1087_path', default='../data/CommonVoice/en/')
 parser.add_argument('--destination_file', default='../data/LibriSpeech/missing_words.txt')
 parser.add_argument('--vocabulary_path', default=None)  # If other external vocabulary is used, add the path to it here.
 args = parser.parse_args()
 
-missing_words = get_all_words_ls(args.libri_path, vocabulary_path=args.vocabulary_path)  # 90153 unique words.
+missing_words_ls = get_all_words_ls(args.libri_path, vocabulary_path=args.vocabulary_path)  # 90153 unique words.
+#missing_words_cv1 = get_all_words_cv1(args.cv1_path, vocabulary_path=args.vocabulary_path)
+missing_words_cv1087 = get_all_words_cv1087(args.cv1087_path, vocabulary_path=args.vocabulary_path)
+
 
 # Here just add "get_all_words_xxx" for other datasets. Then extend the list with new missing words.
-print(len(missing_words))
+print(len(missing_words_ls))
+#print(len(missing_words_cv1))
+print(len(missing_words_cv1087))
+missing_words = missing_words_ls.copy()
+#missing_words.extend(missing_words_cv1)
+missing_words.extend(missing_words_cv1087)
+missing_words = get_unique_entires_list(missing_words)
+
 num_files = split_missing_words_files(missing_words, args.destination_file, 25000)
 print("Saved the missing words into txt files at: " + args.destination_file)
 
@@ -67,14 +103,14 @@ print("Rename the .dict files to 0.dict, 1.dict etc")
 
 word_phoneme_dict = dict()
 for file_idx in range(num_files):
-    with open(args.libri_path + str(file_idx) + ".dict", 'r') as file:
+    with open(args.destination_file + str(file_idx) + ".dict", 'r') as file:
         lines = file.readlines()
         for x in lines:
             x = x.replace("\t", " ")
             x = x.rstrip("\n")
             word_list = x.split(" ")
             word_phoneme_dict[word_list[0]] = word_list[1:]
-with open(args.libri_path + "missing_words.dict", "w") as outfile:
+with open(args.destination_file + "missing_words.dict", "w") as outfile:
     for key, value in word_phoneme_dict.items():
         line = ""
         if "(" not in key:  # remove duplicate pronounciations

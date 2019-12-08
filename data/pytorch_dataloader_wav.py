@@ -17,6 +17,7 @@ import librosa
 import numpy
 import time
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 def normalize_spec(input_spec):
     mean = numpy.mean(input_spec)
@@ -28,8 +29,12 @@ def normalize_spec(input_spec):
 
 class Dataset(data.Dataset):
 
-    def __init__(self, list_ids, wavfolder_path, label_dict, num_features_input, use_delta_features=False, input_type='features'):
+    def __init__(self, collection, num_features_input, use_delta_features=False, input_type='features'):
         '''
+
+        :param collection: Key: Full path to file, value: true label sequence.
+        ex:     {/path/to/file.wav: [0 1 2 3], ...}
+        Note that if the dict is supposed to be fetched in sequence of raising length then it first needs to be ordered.
 
         :param list_ids: Expects list_IDs to be a list of file names for the individual wav files.
         :param wavfolder_path: The relative path to the folder where the raw wav files can be found.
@@ -37,13 +42,9 @@ class Dataset(data.Dataset):
                             label_dict["file_name_1.WAV"] = [3, 27, 33]
         '''
         'Initialization'
-        self.list_ids = list_ids
-        self.label_dict = label_dict
+        self.collection = collection
+        self.collection_items = list(self.collection.items())
 
-        self.wavfolder_is_dict = False
-        self.wavfolder_path = wavfolder_path
-        if type(self.wavfolder_path) is dict:
-            self.wavfolder_is_dict = True
         self.transformData = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize(mean=[0.0], std=[0.5], inplace=True)])
         self.dataset = None
@@ -57,19 +58,13 @@ class Dataset(data.Dataset):
 
     def __len__(self):
         'Denotes the total number of samples'
-        return len(self.list_ids)
+        return len(self.collection)
 
     def __getitem__(self, index):
-        file_name = self.list_ids[index]
+        (path_to_file, true_label) = self.collection_items[index]
+        y = true_label
 
-        if self.wavfolder_is_dict:
-            wav_path = self.wavfolder_path[file_name] + file_name
-        else:
-            wav_path = self.wavfolder_path + file_name
-
-        test_sound, samplerate = librosa.load(wav_path, sr=self.samplerate)
-        y = self.label_dict[file_name]
-
+        test_sound, samplerate = librosa.load(path_to_file, sr=self.samplerate)
         test_sound = numpy.trim_zeros(test_sound, 'b')
         if self.input_type == 'features':
             spec = librosa.feature.melspectrogram(y=test_sound, sr=samplerate, S=None, n_fft=self.nfft,

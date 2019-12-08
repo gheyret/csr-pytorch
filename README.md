@@ -21,7 +21,9 @@ Extended test set by adding vocabulary.
     
     F1, GRU, f=40&d&d2, cyc'steady  0.0830      train-clean-460         dev-clean 100%  2h 33m
     F1, GRU, f=40&d&d2  cyc'decr    0.0581      train-clean-460         dev-clean 100%  6h 15m    
-    
+    F1, GRU, f=40&d&d2  cyc'decr    0.0581      train-clean-460         dev-clean 100%  4h 33m 
+    F2, GRU, f=40&d&d2  cyc'decr    0.0499      train-clean-460         dev-clean 100%  18h 59m
+    F3, GRU, f=40&d&d2  cyc'decr    0.0574      train-clean-460         dev-clean 100%  5h 0m
 Using only CMU dict: 
  
     F1, GRU, f=40&d&d2  0.2343      dev-clean 90%           dev-clean 10%   6m
