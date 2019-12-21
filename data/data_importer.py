@@ -32,7 +32,7 @@ def get_label2index_dict(label_type='phoneme'):
                           'V', 'W', 'Y', 'Z', 'ZH']
         label_list = label_list_cmu
     elif label_type is 'letter':
-        label_list = ['_', ' ', '\'', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+        label_list = ['_', '-', '\'', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                       'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
                       'T', 'U', 'V', 'W', 'X', 'Y', 'Z']  # - is space character
     label2index_dict = dict()
@@ -438,7 +438,7 @@ def words2labels(word_list, label_type, label2index, word2phoneme_dict=dict(), v
         label_idx_list = [label2index[label] for label in label_list]
     except KeyError:
         found_ipa_translation = False
-        #print(label_list)
+        print(label_list)
 
     if verbose:
         print("Extracted: " + label_list)

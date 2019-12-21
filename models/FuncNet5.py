@@ -3,14 +3,14 @@ import torch
 from models.helper_functions import SequenceWise, ResBlock, PaddedRNN
 import math
 
-class FuncNet1(nn.Module):
+class FuncNet5(nn.Module):
     """
     Adaptive layout.
 
     """
     def __init__(self, num_classes=46, num_features_input=70, num_input_channels=1, non_linearity='ReLU',
                  memory_type='GRU', rnn_bidirectional=False, input_type='features'):
-        super(FuncNet1, self).__init__()
+        super(FuncNet5, self).__init__()
         self.input_type = input_type
         self.num_features_input = num_features_input
         self.num_input_channels = num_input_channels
@@ -38,20 +38,12 @@ class FuncNet1(nn.Module):
         self.layer3 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=[3, 3], stride=(2, 1), padding=[1, 1]),  # 256
             nn.BatchNorm2d(256))
-        self.layer3p = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=[3, 3], stride=(2, 1), padding=[1, 1]),  # 256
-            nn.BatchNorm2d(256))
-        self.layer3p2 = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=[3, 3], stride=(2, 1), padding=[1, 1]),  # 256
-            nn.BatchNorm2d(256))
         self.layer4 = nn.Sequential(
             nn.Conv2d(256, 512, kernel_size=[3, 3], stride=(2, 1), padding=[1, 1]),  # 512
             nn.BatchNorm2d(512))
         # ((in - kw + 2 * Pad) / Stride) + 1)
         rnn_input_size = int(math.floor((num_features_input - 5 + 2 * 2) / 2) + 1)
         rnn_input_size = int(math.floor((rnn_input_size - 5 + 2 * 2) / 2) + 1)
-        rnn_input_size = int(math.floor((rnn_input_size - 3 + 2 * 1) / 2) + 1)
-        rnn_input_size = int(math.floor((rnn_input_size - 3 + 2 * 1) / 2) + 1)
         rnn_input_size = int(math.floor((rnn_input_size - 3 + 2 * 1) / 2) + 1)
         rnn_input_size = int(math.floor((rnn_input_size - 3 + 2 * 1) / 2) + 1)
         rnn_input_size = int(rnn_input_size * 512)
@@ -77,10 +69,6 @@ class FuncNet1(nn.Module):
         out = self.layer2(out)
         out = self.non_linearity(out)
         out = self.layer3(out)
-        out = self.non_linearity(out)
-        out = self.layer3p(out)
-        out = self.non_linearity(out)
-        out = self.layer3p2(out)
         out = self.non_linearity(out)
         out = self.layer4(out)
         out = self.non_linearity(out)

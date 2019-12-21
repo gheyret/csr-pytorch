@@ -4,6 +4,11 @@
 Phoneme dictionary used to fill blanks:  
 http://www.speech.cs.cmu.edu/cgi-bin/cmudict
 
+# LibriSpeech dev 20/12-2019 ->
+                            loss     Trained on:             Val on:         
+    F1 GRU f=120, letter    1.407    dev-clean 90%           dev-clean 10%      No sum on RNN outputs
+    F1 GRU f=120, letter    1.390    dev-clean 90%           dev-clean 10%      Sum on RNN outputs
+
 # LibriSpeech 4/12-2019 ->
 First few epochs ordered in increasing length of samples.  
 Extended test set by adding vocabulary.  
@@ -24,6 +29,7 @@ Extended test set by adding vocabulary.
     F1, GRU, f=40&d&d2  cyc'decr    0.0581      train-clean-460         dev-clean 100%  4h 33m 
     F2, GRU, f=40&d&d2  cyc'decr    0.0499      train-clean-460         dev-clean 100%  18h 59m
     F3, GRU, f=40&d&d2  cyc'decr    0.0574      train-clean-460         dev-clean 100%  5h 0m
+    F1 with Letters 0.0725 6h 17m
 Using only CMU dict: 
  
     F1, GRU, f=40&d&d2  0.2343      dev-clean 90%           dev-clean 10%   6m

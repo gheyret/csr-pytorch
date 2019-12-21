@@ -55,7 +55,8 @@ class ResBlock(nn.Module):
 
 class PaddedRNN(nn.Module):
 
-    def __init__(self, mode='RNN', input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batchnorm=True):
+    def __init__(self, mode='RNN', input_size=512, hidden_size=512, num_layers=1, bidirectional=True, batchnorm=True,
+                 sum_bidirectional=True):
         super().__init__()
         self.bidirectional = bidirectional
         if mode is 'RNN':
@@ -67,15 +68,19 @@ class PaddedRNN(nn.Module):
             self.rnn = nn.GRU(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers,
                                bidirectional=bidirectional, batch_first=False)
         self.use_batchnorm = batchnorm
+        self.sum_bidirectional = sum_bidirectional
         if batchnorm:
-            self.batchNorm = SequenceWise(nn.BatchNorm1d(hidden_size))
+            if sum_bidirectional:
+                self.batchNorm = SequenceWise(nn.BatchNorm1d(hidden_size))
+            else:
+                self.batchNorm = SequenceWise(nn.BatchNorm1d(hidden_size*2))
 
     def forward(self, x, input_lengths):
-        # Expects: T x N x (F*FM
+        # Expects: T x N x (F*FM)
         out = nn.utils.rnn.pack_padded_sequence(x, input_lengths, batch_first=False)
-        out, h = self.rnn(out)
+        out, _ = self.rnn(out)
         out, _ = nn.utils.rnn.pad_packed_sequence(out)
-        if self.bidirectional:
+        if self.bidirectional & self.sum_bidirectional:
             out = out.view(out.size(0), out.size(1), 2, -1).sum(2).view(out.size(0), out.size(1), -1)  # (TxNxH*2) -> (TxNxH) by sum
 
         if self.use_batchnorm:
