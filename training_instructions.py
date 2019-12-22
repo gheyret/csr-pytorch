@@ -32,7 +32,7 @@ parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
 parser.add_argument('--max_training_epochs_ordered', default=1)
 
-parser.add_argument('--mini_epoch_length', default=40)
+parser.add_argument('--mini_epoch_length', default=150)
 parser.add_argument('--mini_epoch_evaluate_validation', default=True)
 parser.add_argument('--mini_epoch_early_stopping', default=False)
 parser.add_argument('--mini_epoch_validation_partition_size', default=0.2)
@@ -58,7 +58,7 @@ parser.add_argument('--use_delta_features', default=False)  # Use of delta & del
 
 parser.add_argument('--architecture_type', default='CTC')  # CTC or LAS
 parser.add_argument('--label_type', default='letter')  # phoneme or letter
-parser.add_argument('--training_libri_type', default='dev')  # dev, clean or other
+parser.add_argument('--training_libri_type', default='clean')  # dev, clean or other
 
 
 if __name__ == "__main__":
@@ -101,172 +101,178 @@ if __name__ == "__main__":
 
     tensorboard_logger = TensorboardLogger()
 
-    # Dataloaders:
+    ids = ["letter_clean", "phoneme_clean"]
+    label_types = ["letter", "phoneme"]
 
-    import_kwargs = {"vocabulary_path": args.vocab_path, "vocabulary_path_is_xml": args.vocab_is_xml,
-                                                         "vocabulary_path_addition":args.vocab_addition_path,
-                                                         "label_type": args.label_type}
-    dataset_kwargs = {"num_features_input":args.num_features_input,
-                                   "use_delta_features":args.use_delta_features, "input_type": args.input_type}
-    model_kwargs = {"num_classes": get_num_classes(args.label_type), "num_features_input": args.num_features_input,
-                    "num_input_channels": num_input_channels, "non_linearity": args.non_linearity,
-                    "rnn_bidirectional": args.rnn_bidirectional,
-                    "memory_type": args.rnn_memory_type, "input_type": args.input_type}
-    processor_kwargs = {"batch_size": args.batch_size,
-                        "max_epochs_training": args.max_training_epochs,
-                         "max_epochs_training_ordered": args.max_training_epochs_ordered,
-                         "learning_rate": args.learning_rate,
-                         "learning_rate_mode": args.learning_rate_mode,
-                         "min_learning_rate_factor": args.min_learning_rate_factor,
-                         "learning_rate_step_size": args.learning_rate_step_size,
-                         "num_classes": get_num_classes(args.label_type),
-                         "using_cuda": use_cuda,
-                        "early_stopping": early_stopper,
-                         "tensorboard_logger": tensorboard_logger,
-                         "mini_epoch_length": args.mini_epoch_length,
-                         "track_learning_rate": args.track_learning_rate}
-
-
-    # DATALOADERS LibriSpeech:
-    # Train & Validation
-
-    # Train on dev-clean val on part of dev-clean
-    libri_speech_dev_clean_path = args.libri_path + "dev-clean/"
-    libri_speech_dev_other_path = args.libri_path + "dev-other/"
-    libri_speech_test_clean_path = args.libri_path + "test-clean/"
-    libri_speech_test_other_path = args.libri_path + "test-other/"
-    libri_speech_train_100_path = args.libri_path + "train-clean-100/"
-    libri_speech_train_360_path = args.libri_path + "train-clean-360/"
-    libri_speech_train_500_path = args.libri_path + "train-other-500/"
-
-    if args.training_libri_type is "dev":
-        collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
-        collection_train, collection_validation = randomly_partition_data(0.9, collection_ls_dev_clean)
-    elif args.training_libri_type is "clean":
-        collection_ls_train_100, missing_words_ls_train_100 = import_data_libri_speech(dataset_path=libri_speech_train_100_path, **import_kwargs)
-        collection_ls_train_360, missing_words_ls_train_360 = import_data_libri_speech(dataset_path=libri_speech_train_360_path, **import_kwargs)
-
-        collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
-
-        collection_train = concat_datasets(collection_ls_train_100, collection_ls_train_360)
-        collection_validation = collection_ls_dev_clean
-    elif args.training_libri_type is "other":
-        collection_ls_train_100, missing_words_ls_train_100 = import_data_libri_speech(dataset_path=libri_speech_train_100_path, **import_kwargs)
-        collection_ls_train_360, missing_words_ls_train_360 = import_data_libri_speech(dataset_path=libri_speech_train_360_path, **import_kwargs)
-        collection_ls_train_500, missing_words_ls_train_500 = import_data_libri_speech(dataset_path=libri_speech_train_500_path, **import_kwargs)
-
-        collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
-        collection_ls_dev_other, missing_words_ls_dev_other = import_data_libri_speech(dataset_path=libri_speech_dev_other_path, **import_kwargs)
-
-        collection_train = concat_datasets(collection_ls_train_100, collection_ls_train_360)
-        collection_train = concat_datasets(collection_train, collection_ls_train_500)
-
-        collection_validation = concat_datasets(collection_ls_dev_clean, collection_ls_dev_other)
-
-    #collection_cv_train, collection_cv_val, collection_cv_test, missing_words_tot = import_data_common_voice_1087(
-    #                                                        dataset_path=args.commonvoice_1087_path, **import_kwargs)
-    #testing_set_cv = Dataset(collection=collection_cv_test, **dataset_kwargs)
-    #testing_dataloader_cv = AudioDataLoader(testing_set_cv, **dataloader_kwargs)
-
-    collection_train_ordered = order_data_by_length(collection_train)
-    training_set_ordered = Dataset(collection=collection_train_ordered, **dataset_kwargs)
-    training_dataloader_ordered = AudioDataLoader(training_set_ordered, **dataloader_kwargs_ordered)
-    training_dataloader = AudioDataLoader(training_set_ordered, **dataloader_kwargs)
-
-    validation_set = Dataset(collection=collection_validation, **dataset_kwargs)
-    validation_dataloader = AudioDataLoader(validation_set, **dataloader_kwargs)
-
-    #   Testing:
-    collection_ls_test_clean, missing_words_ls_test_clean = import_data_libri_speech(dataset_path=libri_speech_test_clean_path, **import_kwargs)
-    collection_ls_test_other, missing_words_ls_test_other = import_data_libri_speech(dataset_path=libri_speech_test_other_path, **import_kwargs)
-
-    testing_set_ls_clean = Dataset(collection=collection_ls_test_clean, **dataset_kwargs)
-    testing_dataloader_ls_clean = AudioDataLoader(testing_set_ls_clean, **dataloader_kwargs)
-
-    testing_set_ls_other = Dataset(collection=collection_ls_test_other, **dataset_kwargs)
-    testing_dataloader_ls_other = AudioDataLoader(testing_set_ls_other, **dataloader_kwargs)
+    for i, id in enumerate(ids):
+        args.label_type = label_types[i]
+        import_kwargs = {"vocabulary_path": args.vocab_path, "vocabulary_path_is_xml": args.vocab_is_xml,
+                                                             "vocabulary_path_addition":args.vocab_addition_path,
+                                                             "label_type": args.label_type}
+        dataset_kwargs = {"num_features_input":args.num_features_input,
+                                       "use_delta_features":args.use_delta_features, "input_type": args.input_type}
+        model_kwargs = {"num_classes": get_num_classes(args.label_type), "num_features_input": args.num_features_input,
+                        "num_input_channels": num_input_channels, "non_linearity": args.non_linearity,
+                        "rnn_bidirectional": args.rnn_bidirectional,
+                        "memory_type": args.rnn_memory_type, "input_type": args.input_type}
+        processor_kwargs = {"batch_size": args.batch_size,
+                            "max_epochs_training": args.max_training_epochs,
+                             "max_epochs_training_ordered": args.max_training_epochs_ordered,
+                             "learning_rate": args.learning_rate,
+                             "learning_rate_mode": args.learning_rate_mode,
+                             "min_learning_rate_factor": args.min_learning_rate_factor,
+                             "learning_rate_step_size": args.learning_rate_step_size,
+                             "num_classes": get_num_classes(args.label_type),
+                             "using_cuda": use_cuda,
+                            "early_stopping": early_stopper,
+                             "tensorboard_logger": tensorboard_logger,
+                             "mini_epoch_length": args.mini_epoch_length,
+                             "track_learning_rate": args.track_learning_rate}
 
 
+        # DATALOADERS LibriSpeech:
+        # Train & Validation
 
-    """
-    missing_words_train = missing_words_1.append(missing_words_2)
+        # Train on dev-clean val on part of dev-clean
+        libri_speech_dev_clean_path = args.libri_path + "dev-clean/"
+        libri_speech_dev_other_path = args.libri_path + "dev-other/"
+        libri_speech_test_clean_path = args.libri_path + "test-clean/"
+        libri_speech_test_other_path = args.libri_path + "test-other/"
+        libri_speech_train_100_path = args.libri_path + "train-clean-100/"
+        libri_speech_train_360_path = args.libri_path + "train-clean-360/"
+        libri_speech_train_500_path = args.libri_path + "train-other-500/"
 
-    missing_words_validation = missing_words_train
+        if args.training_libri_type is "dev":
+            collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
+            collection_train, collection_validation = randomly_partition_data(0.9, collection_ls_dev_clean)
+        elif args.training_libri_type is "clean":
+            collection_ls_train_100, missing_words_ls_train_100 = import_data_libri_speech(dataset_path=libri_speech_train_100_path, **import_kwargs)
+            collection_ls_train_360, missing_words_ls_train_360 = import_data_libri_speech(dataset_path=libri_speech_train_360_path, **import_kwargs)
 
-    print("Training samples/missing: {}/{}. Val samples/missing {}/{}. Test samples/missing {}/{}.".format(
-        len(list_id_train), len(missing_words_train), len(list_id_validation),
-        len(missing_words_validation), len(list_id_test), len(missing_words_test)))
-    """
-    print("Training samples: {}. Val samples {}. Test samples {}.".format(
-        training_dataloader.__len__()*args.batch_size, validation_dataloader.__len__()*args.batch_size, testing_dataloader_ls_clean.__len__()*args.batch_size))
+            collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
 
-    # Processor:
-    # ["loss_train", "PER_train", "loss_val", "PER_val"]
+            collection_train = concat_datasets(collection_ls_train_100, collection_ls_train_360)
+            collection_validation = collection_ls_dev_clean
+        elif args.training_libri_type is "other":
+            collection_ls_train_100, missing_words_ls_train_100 = import_data_libri_speech(dataset_path=libri_speech_train_100_path, **import_kwargs)
+            collection_ls_train_360, missing_words_ls_train_360 = import_data_libri_speech(dataset_path=libri_speech_train_360_path, **import_kwargs)
+            collection_ls_train_500, missing_words_ls_train_500 = import_data_libri_speech(dataset_path=libri_speech_train_500_path, **import_kwargs)
 
-    from models.FuncNet1 import FuncNet1
-    from models.FuncNet2 import FuncNet2
-    from models.FuncNet3 import FuncNet3
-    from models.FuncNet4 import FuncNet4
-    from models.FuncNet5 import FuncNet5
-    from models.ConvNet3 import ConvNet3
-    from models.ConvNet4 import ConvNet4
-    from models.ConvNet5 import ConvNet5
-    from models.ConvNet6 import ConvNet6
-    from models.ConvNet7 import ConvNet7
-    from models.ConvNet8 import ConvNet8
-    from models.ConvNet9 import ConvNet9
-    from models.ConvNet10 import ConvNet10
-    from models.ConvNet11 import ConvNet11
-    from models.ConvNet12 import ConvNet12
-    from models.ConvNet13 import ConvNet13
-    from models.ConvNet14 import ConvNet14
-    from models.ConvNet15 import ConvNet15
-    from models.ConvNet16 import ConvNet16
-    from models.DNet1 import DNet1
-    from models.DNet2 import DNet2
-    from models.RawNet2 import RawNet2
+            collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
+            collection_ls_dev_other, missing_words_ls_dev_other = import_data_libri_speech(dataset_path=libri_speech_dev_other_path, **import_kwargs)
 
-    model_num = [5]
-    for i_model, model in enumerate([FuncNet5(**model_kwargs)]):
-        model_name = "FuncNet" + str(model_num[i_model])
-        visdom_logger_train_ls = VisdomLogger("Letter_RNN: " + model_name + " GRU,f=120",
-                                              ["loss_train", "PER_train", "loss_val", "PER_val"], 7)
-        processor_ls = InstructionsProcessor(model, training_dataloader, validation_dataloader,
-                                             training_dataloader_ordered=training_dataloader_ordered,
-                                             visdom_logger_train=visdom_logger_train_ls, **processor_kwargs)
+            collection_train = concat_datasets(collection_ls_train_100, collection_ls_train_360)
+            collection_train = concat_datasets(collection_train, collection_ls_train_500)
 
-        # processor_ls.test_learning_rate_lambda(learning_rate_mode=args.learning_rate_mode, max_lr=args.learning_rate,
-        #                                       factor=args.min_learning_rate_factor,
-        #                                       step_size_factor=args.learning_rate_step_size, test_epochs=10)
-        # processor_ls.find_learning_rate(1e-7, 1e-1, 2)
-        processor_ls.print_cuda_information(use_cuda, device)
-        print("--------Calling train_model()")
+            collection_validation = concat_datasets(collection_ls_dev_clean, collection_ls_dev_other)
 
-        # processor_ls.load_model("./trained_models/LS_ConvNet" + str(model_num[i_model]) + ".pt")
-        # processor_ls.load_model("./trained_models/LS_460ConvNet2.pt")
-        # processor_ls.load_model("./trained_models/checkpoint.pt")
-        processor_ls.train_model(args.mini_epoch_validation_partition_size,
-                                 args.mini_epoch_evaluate_validation,
-                                 args.mini_epoch_early_stopping, ordered=True, verbose=True)
-        processor_ls.train_model(args.mini_epoch_validation_partition_size,
-                                 args.mini_epoch_evaluate_validation,
-                                 args.mini_epoch_early_stopping, ordered=False, verbose=True)
-        processor_ls.load_model("./trained_models/checkpoint.pt")
-        #processor_ls.save_model("./trained_models/LS_460" + model_name + "_letter.pt")
-        print("Evaluating on test data for " + model_name + ":")
-        processor_ls.load_model("./trained_models/checkpoint.pt")
-        processor_ls.evaluate_model(testing_dataloader_ls_clean, use_early_stopping=False, verbose=True)
-        #processor_ls.evaluate_model(testing_dataloader_ls_other, use_early_stopping=False, verbose=True)
-        #processor_ls.evaluate_model(testing_dataloader_cv, use_early_stopping=False, verbose=True)
-        early_stopper.reset()
+        #collection_cv_train, collection_cv_val, collection_cv_test, missing_words_tot = import_data_common_voice_1087(
+        #                                                        dataset_path=args.commonvoice_1087_path, **import_kwargs)
+        #testing_set_cv = Dataset(collection=collection_cv_test, **dataset_kwargs)
+        #testing_dataloader_cv = AudioDataLoader(testing_set_cv, **dataloader_kwargs)
 
-    if use_cuda:
-        print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None) / 1e9, 'GB')
-        print('Maximum GPU memory managed by the caching allocator: ',
-              torch.cuda.max_memory_cached(device=None) / 1e9, 'GB')
+        collection_train_ordered = order_data_by_length(collection_train)
+        training_set_ordered = Dataset(collection=collection_train_ordered, **dataset_kwargs)
+        training_dataloader_ordered = AudioDataLoader(training_set_ordered, **dataloader_kwargs_ordered)
+        training_dataloader = AudioDataLoader(training_set_ordered, **dataloader_kwargs)
 
-# Todo: Attempt learning completely without CNN, take spec as input to rnn where input_size = num_features.
+        validation_set = Dataset(collection=collection_validation, **dataset_kwargs)
+        validation_dataloader = AudioDataLoader(validation_set, **dataloader_kwargs)
 
-# Todo: Move back to tensorboard
+        #   Testing:
+        collection_ls_test_clean, missing_words_ls_test_clean = import_data_libri_speech(dataset_path=libri_speech_test_clean_path, **import_kwargs)
+        collection_ls_test_other, missing_words_ls_test_other = import_data_libri_speech(dataset_path=libri_speech_test_other_path, **import_kwargs)
+
+        testing_set_ls_clean = Dataset(collection=collection_ls_test_clean, **dataset_kwargs)
+        testing_dataloader_ls_clean = AudioDataLoader(testing_set_ls_clean, **dataloader_kwargs)
+
+        testing_set_ls_other = Dataset(collection=collection_ls_test_other, **dataset_kwargs)
+        testing_dataloader_ls_other = AudioDataLoader(testing_set_ls_other, **dataloader_kwargs)
+
+
+
+        """
+        missing_words_train = missing_words_1.append(missing_words_2)
+    
+        missing_words_validation = missing_words_train
+    
+        print("Training samples/missing: {}/{}. Val samples/missing {}/{}. Test samples/missing {}/{}.".format(
+            len(list_id_train), len(missing_words_train), len(list_id_validation),
+            len(missing_words_validation), len(list_id_test), len(missing_words_test)))
+        """
+        print("Training samples: {}. Val samples {}. Test samples {}.".format(
+            training_dataloader.__len__()*args.batch_size, validation_dataloader.__len__()*args.batch_size, testing_dataloader_ls_clean.__len__()*args.batch_size))
+
+        # Processor:
+        # ["loss_train", "PER_train", "loss_val", "PER_val"]
+
+        from models.FuncNet1 import FuncNet1
+        from models.FuncNet2 import FuncNet2
+        from models.FuncNet3 import FuncNet3
+        from models.FuncNet4 import FuncNet4
+        from models.FuncNet5 import FuncNet5
+        from models.ConvNet3 import ConvNet3
+        from models.ConvNet4 import ConvNet4
+        from models.ConvNet5 import ConvNet5
+        from models.ConvNet6 import ConvNet6
+        from models.ConvNet7 import ConvNet7
+        from models.ConvNet8 import ConvNet8
+        from models.ConvNet9 import ConvNet9
+        from models.ConvNet10 import ConvNet10
+        from models.ConvNet11 import ConvNet11
+        from models.ConvNet12 import ConvNet12
+        from models.ConvNet13 import ConvNet13
+        from models.ConvNet14 import ConvNet14
+        from models.ConvNet15 import ConvNet15
+        from models.ConvNet16 import ConvNet16
+        from models.DNet1 import DNet1
+        from models.DNet2 import DNet2
+        from models.RawNet2 import RawNet2
+
+        model_num = [1]
+
+        for i_model, model in enumerate([FuncNet1(**model_kwargs)]):
+
+            model_name = "FuncNet" + str(model_num[i_model])
+            visdom_logger_train_ls = VisdomLogger(id + ": " + model_name + " GRU,f=120",
+                                                  ["loss_train", "PER_train", "loss_val", "PER_val"], 7)
+            processor_ls = InstructionsProcessor(model, training_dataloader, validation_dataloader,
+                                                 training_dataloader_ordered=training_dataloader_ordered,
+                                                 visdom_logger_train=visdom_logger_train_ls, **processor_kwargs)
+
+            # processor_ls.test_learning_rate_lambda(learning_rate_mode=args.learning_rate_mode, max_lr=args.learning_rate,
+            #                                       factor=args.min_learning_rate_factor,
+            #                                       step_size_factor=args.learning_rate_step_size, test_epochs=10)
+            # processor_ls.find_learning_rate(1e-7, 1e-1, 2)
+            processor_ls.print_cuda_information(use_cuda, device)
+            print("--------Calling train_model()")
+
+            # processor_ls.load_model("./trained_models/LS_ConvNet" + str(model_num[i_model]) + ".pt")
+            # processor_ls.load_model("./trained_models/LS_460ConvNet2.pt")
+            # processor_ls.load_model("./trained_models/checkpoint.pt")
+            processor_ls.train_model(args.mini_epoch_validation_partition_size,
+                                     args.mini_epoch_evaluate_validation,
+                                     args.mini_epoch_early_stopping, ordered=True, verbose=False)
+            processor_ls.train_model(args.mini_epoch_validation_partition_size,
+                                     args.mini_epoch_evaluate_validation,
+                                     args.mini_epoch_early_stopping, ordered=False, verbose=False)
+            processor_ls.load_model("./trained_models/checkpoint.pt")
+            processor_ls.save_model("./trained_models/" + id + "_" + model_name + ".pt")
+            visdom_logger_train_ls.save_data_to_file("./logger/" + model_name + "_" + id + ".csv")
+            print("Evaluating on test data for " + model_name + ":")
+            processor_ls.load_model("./trained_models/checkpoint.pt")
+            processor_ls.evaluate_model(testing_dataloader_ls_clean, use_early_stopping=False, verbose=True)
+            processor_ls.evaluate_model(testing_dataloader_ls_other, use_early_stopping=False, verbose=True)
+            #processor_ls.evaluate_model(testing_dataloader_cv, use_early_stopping=False, verbose=True)
+            early_stopper.reset()
+
+        if use_cuda:
+            print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None) / 1e9, 'GB')
+            print('Maximum GPU memory managed by the caching allocator: ',
+                  torch.cuda.max_memory_cached(device=None) / 1e9, 'GB')
+
+    # Todo: Attempt learning completely without CNN, take spec as input to rnn where input_size = num_features.
+
+    # Todo: Move back to tensorboard
 
 # https://github.com/weedwind/CTC-speech-recognition/blob/master/set_model_ctc.py

@@ -47,6 +47,12 @@ class VisdomLogger(object):
         )
         self.iteration += 1
 
+    def save_data_to_file(self, file_path):
+        import csv
+        with open(file_path, 'w') as f:  # Just use 'w' mode in 3.x
+            w = csv.DictWriter(f, self.values.keys())
+            w.writeheader()
+            w.writerow(self.values)
 
 class TensorboardLogger(object):
 

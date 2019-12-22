@@ -4,6 +4,14 @@
 Phoneme dictionary used to fill blanks:  
 http://www.speech.cs.cmu.edu/cgi-bin/cmudict
 
+# LibriSpeech clean 22/12-2019 ->
+Trained on train-clean-100/360 val on dev-clean.  
+
+    Model + note        LER-clean   LER-other   Time        Saved as:
+    F1 f=120, phoneme   0.0591      0.1939      5h 37m      phoneme_clean_FuncŃet1.pt
+    F1 f=120, letters   0.0774      0.2266      7h 10m      letter_clean_FuncŃet1.pt
+    
+
 # LibriSpeech dev 20/12-2019 ->
                             loss     Trained on:             Val on:         
     F1 GRU f=120, letter    1.407    dev-clean 90%           dev-clean 10%      No sum on RNN outputs
