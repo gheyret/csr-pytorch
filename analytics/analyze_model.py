@@ -8,6 +8,8 @@ from models.FuncNet1 import FuncNet1
 from models.FuncNet2 import FuncNet2
 from models.FuncNet3 import FuncNet3
 from models.FuncNet4 import FuncNet4
+from models.FuncNet5 import FuncNet5
+
 from models.ConvNet3 import ConvNet3
 from models.ConvNet4 import ConvNet4
 from models.ConvNet5 import ConvNet5
@@ -42,19 +44,22 @@ summary(model, (3, 70, 1600))
 model = RawNet2()
 model.cuda()
 summary(model, (1, 1, 16000))
-
+print("############################################### FuncNet1")
 model = FuncNet1(num_features_input=40, num_input_channels=3)
 model.cuda()
 summary(model, (3, 40, 1600))
 
+print("############################################### FuncNet2")
 model = FuncNet2(num_features_input=40, num_input_channels=3)
 model.cuda()
 summary(model, (3, 40, 1600))
 
+print("############################################### FuncNet3")
 model = FuncNet3(num_features_input=40, num_input_channels=3)
 model.cuda()
 summary(model, (3, 40, 1600))
 
-model = FuncNet4(num_features_input=120, num_input_channels=1)
+print("############################################### FuncNet5")
+model = FuncNet5(num_features_input=120, num_input_channels=1)
 model.cuda()
 summary(model, (1, 120, 1600))

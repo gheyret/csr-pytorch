@@ -5,12 +5,33 @@ Phoneme dictionary used to fill blanks:
 http://www.speech.cs.cmu.edu/cgi-bin/cmudict
 
 # LibriSpeech clean 22/12-2019 ->
+clean-100
+
+    Model + note        LER-clean   LER-other   Time        Saved as:
+    F1 f=120, phoneme   0.1005      0.2629      1h 11m      phoneme_clean_100_FuncŃet1.pt
+    F1 f=120, letters   0.1373      0.3030      1h 10m      letter_clean_100_FuncŃet1.pt
+    
+clean-360
+
+    Model + note        LER-clean   LER-other   Time        Saved as:
+    F1 f=120, phoneme   0.0652      0.2056      4h 12m      phoneme_clean_360_FuncŃet1.pt
+    F1 f=120, letters   0.0886      0.2419      4h 46m      letter_clean_360_FuncŃet1.pt
+
+
 Trained on train-clean-100/360 val on dev-clean.  
 
     Model + note        LER-clean   LER-other   Time        Saved as:
     F1 f=120, phoneme   0.0591      0.1939      5h 37m      phoneme_clean_FuncŃet1.pt
     F1 f=120, letters   0.0774      0.2266      7h 10m      letter_clean_FuncŃet1.pt
     
+    F6 f=120, phoneme   0.0990      0.2664      10h 21m      phoneme_clean_cnn_FuncŃet6.pt
+    F6 f=120, letters   0.1068      0.2829      10h 50m      letter_clean_cnn_FuncŃet6.pt
+    
+   Other  
+   
+    Model + note        LER-clean   LER-other   Time        Saved as:
+    F1 f=120, phoneme   0.0479      0.1412      13h 37m     phoneme_other_FuncŃet1.pt
+    F1 f=120, letters   0.0618      0.1689      18h 33m     letter_other_FuncŃet1.pt
 
 # LibriSpeech dev 20/12-2019 ->
                             loss     Trained on:             Val on:         

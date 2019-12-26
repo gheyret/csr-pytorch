@@ -32,23 +32,23 @@ parser.add_argument('--run_on_cpu', default=False)
 parser.add_argument('--max_training_epochs', default=500)
 parser.add_argument('--max_training_epochs_ordered', default=1)
 
-parser.add_argument('--mini_epoch_length', default=150)
-parser.add_argument('--mini_epoch_evaluate_validation', default=True)
+parser.add_argument('--mini_epoch_length', default=150)       #       asd
+parser.add_argument('--mini_epoch_evaluate_validation', default=True )     # ads
 parser.add_argument('--mini_epoch_early_stopping', default=False)
-parser.add_argument('--mini_epoch_validation_partition_size', default=0.2)
+parser.add_argument('--mini_epoch_validation_partition_size', default=0.1)
 parser.add_argument('--early_stopping_delta', default=0.001)
 parser.add_argument('--validation_patience', default=2)
 
-parser.add_argument('--learning_rate', default=1e-3)
-parser.add_argument('--learning_rate_mode', default='cyclic')  # static or cyclic or decaying
-parser.add_argument('--min_learning_rate_factor', default=10.0)
-parser.add_argument('--learning_rate_step_size', default=0.25)  # Epochs
+parser.add_argument('--learning_rate', default=5e-5)  #1e-3 for Fnet1, 1e-4 for Fnet8
+parser.add_argument('--learning_rate_mode', default='static')  # static or # or decaying
+parser.add_argument('--min_learning_rate_factor', default=6.0)
+parser.add_argument('--learning_rate_step_size', default=0.25)  # Epochs 0.25 for cyclic
 parser.add_argument('--track_learning_rate', default=True)  # Track or not
 
 parser.add_argument('--number_of_workers', default=8)
 parser.add_argument('--batch_size', default=16)
 
-parser.add_argument('--rnn_memory_type', default='GRU')  # GRU or LSTM or RNN
+parser.add_argument('--rnn_memory_type', default='LSTM')  # GRU or LSTM or RNN
 parser.add_argument('--rnn_bidirectional', default=True)  # GRU or LSTM bidirectional?
 parser.add_argument('--non_linearity', default='ReLU')  # ReLU or Hardtanh
 
@@ -58,7 +58,7 @@ parser.add_argument('--use_delta_features', default=False)  # Use of delta & del
 
 parser.add_argument('--architecture_type', default='CTC')  # CTC or LAS
 parser.add_argument('--label_type', default='letter')  # phoneme or letter
-parser.add_argument('--training_libri_type', default='clean')  # dev, clean or other
+parser.add_argument('--training_libri_type', default='dev')  # dev, clean or other
 
 
 if __name__ == "__main__":
@@ -101,9 +101,10 @@ if __name__ == "__main__":
 
     tensorboard_logger = TensorboardLogger()
 
-    ids = ["letter_clean", "phoneme_clean"]
-    label_types = ["letter", "phoneme"]
-
+    #ids = ["letter_clean_cnn", "phoneme_clean_cnn"]
+    ids = ["phoneme_dev_test"]
+    #label_types = ["letter", "phoneme"]
+    label_types = ["phoneme"]
     for i, id in enumerate(ids):
         args.label_type = label_types[i]
         import_kwargs = {"vocabulary_path": args.vocab_path, "vocabulary_path_is_xml": args.vocab_is_xml,
@@ -152,6 +153,24 @@ if __name__ == "__main__":
             collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
 
             collection_train = concat_datasets(collection_ls_train_100, collection_ls_train_360)
+            collection_validation = collection_ls_dev_clean
+        elif args.training_libri_type is "clean-100":
+            collection_ls_train_100, missing_words_ls_train_100 = import_data_libri_speech(dataset_path=libri_speech_train_100_path, **import_kwargs)
+            #collection_ls_train_360, missing_words_ls_train_360 = import_data_libri_speech(dataset_path=libri_speech_train_360_path, **import_kwargs)
+
+            collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
+
+            collection_train = collection_ls_train_100
+            #collection_train = concat_datasets(collection_ls_train_100, collection_ls_train_360)
+            collection_validation = collection_ls_dev_clean
+        elif args.training_libri_type is "clean-360":
+            #collection_ls_train_100, missing_words_ls_train_100 = import_data_libri_speech(dataset_path=libri_speech_train_100_path, **import_kwargs)
+            collection_ls_train_360, missing_words_ls_train_360 = import_data_libri_speech(dataset_path=libri_speech_train_360_path, **import_kwargs)
+
+            collection_ls_dev_clean, missing_words_ls_dev_clean = import_data_libri_speech(dataset_path=libri_speech_dev_clean_path, **import_kwargs)
+
+            collection_train = collection_ls_train_360
+            # collection_train = concat_datasets(collection_ls_train_100, collection_ls_train_360)
             collection_validation = collection_ls_dev_clean
         elif args.training_libri_type is "other":
             collection_ls_train_100, missing_words_ls_train_100 = import_data_libri_speech(dataset_path=libri_speech_train_100_path, **import_kwargs)
@@ -211,6 +230,10 @@ if __name__ == "__main__":
         from models.FuncNet3 import FuncNet3
         from models.FuncNet4 import FuncNet4
         from models.FuncNet5 import FuncNet5
+        from models.FuncNet6 import FuncNet6
+        from models.FuncNet7 import FuncNet7
+        from models.FuncNet8 import FuncNet8
+
         from models.ConvNet3 import ConvNet3
         from models.ConvNet4 import ConvNet4
         from models.ConvNet5 import ConvNet5
@@ -240,25 +263,28 @@ if __name__ == "__main__":
                                                  training_dataloader_ordered=training_dataloader_ordered,
                                                  visdom_logger_train=visdom_logger_train_ls, **processor_kwargs)
 
-            # processor_ls.test_learning_rate_lambda(learning_rate_mode=args.learning_rate_mode, max_lr=args.learning_rate,
+            #processor_ls.test_learning_rate_lambda(learning_rate_mode=args.learning_rate_mode, max_lr=args.learning_rate,
             #                                       factor=args.min_learning_rate_factor,
             #                                       step_size_factor=args.learning_rate_step_size, test_epochs=10)
-            # processor_ls.find_learning_rate(1e-7, 1e-1, 2)
+            #processor_ls.find_learning_rate(1e-7, 1e-1, 2)
             processor_ls.print_cuda_information(use_cuda, device)
             print("--------Calling train_model()")
 
             # processor_ls.load_model("./trained_models/LS_ConvNet" + str(model_num[i_model]) + ".pt")
-            # processor_ls.load_model("./trained_models/LS_460ConvNet2.pt")
+            # processor_ls.load_model("./trained_models/" + id + "_" + model_name + ".pt")
             # processor_ls.load_model("./trained_models/checkpoint.pt")
+
             processor_ls.train_model(args.mini_epoch_validation_partition_size,
                                      args.mini_epoch_evaluate_validation,
                                      args.mini_epoch_early_stopping, ordered=True, verbose=False)
             processor_ls.train_model(args.mini_epoch_validation_partition_size,
                                      args.mini_epoch_evaluate_validation,
                                      args.mini_epoch_early_stopping, ordered=False, verbose=False)
-            processor_ls.load_model("./trained_models/checkpoint.pt")
-            processor_ls.save_model("./trained_models/" + id + "_" + model_name + ".pt")
-            visdom_logger_train_ls.save_data_to_file("./logger/" + model_name + "_" + id + ".csv")
+
+            #processor_ls.load_model("./trained_models/checkpoint.pt")
+            #processor_ls.save_model("./trained_models/" + id + "_" + model_name + ".pt")
+            #visdom_logger_train_ls.save_data_to_file("./logger/" + model_name + "_" + id + ".csv")
+
             print("Evaluating on test data for " + model_name + ":")
             processor_ls.load_model("./trained_models/checkpoint.pt")
             processor_ls.evaluate_model(testing_dataloader_ls_clean, use_early_stopping=False, verbose=True)

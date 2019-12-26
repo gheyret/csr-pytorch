@@ -86,3 +86,30 @@ class PaddedRNN(nn.Module):
         if self.use_batchnorm:
             out = self.batchNorm(out)
         return out
+
+
+def stack_frames(x, lengths, num_stack):
+    # T x N x F input
+    # output: T/3 x N x F*3
+    import math
+    T, N, F = x.shape
+    T_out = math.ceil(T / num_stack)
+
+
+    x_stacked = torch.zeros([T_out, N, F * num_stack]).cuda()
+    count = 0
+    for i in range(math.floor(T / num_stack)):
+        t = i * num_stack
+        y = torch.cat([x[t+j, :, :] for j in range(num_stack)], dim=1)
+        x_stacked[count, :, :] = y
+        count = count + 1
+    i = i + 1
+    T_left = x.shape[0] - (i * num_stack)
+    lengths_stacked = torch.floor(torch.div(lengths.float(), num_stack)).int()
+    #lengths_stacked = lengths_stacked + T_left
+    if T_left > 0:
+        for j in range(T_left):
+            t = j * num_stack
+            index = i * num_stack + j
+            x_stacked[count, :, t:(t + F)] = x[index, :, :]
+    return x_stacked, lengths_stacked

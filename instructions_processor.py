@@ -143,6 +143,7 @@ class InstructionsProcessor(object):
         for g in self.optimizer.param_groups:
             old_lr = g['lr']
             g['lr'] = start_lr
+        print(start_lr)
 
         lr_find_loss = []
         lr_find_lr = []
@@ -157,18 +158,21 @@ class InstructionsProcessor(object):
             print("epoch {}".format(i))
             for batch_i, (local_data) in enumerate(self.training_dataloader, 0):
                 outputs, output_lengths, local_targets, local_target_lengths, batch_loss = self.process_batch_training(
-                    local_data, i, batch_i)
-                train_losses, edit_distances = self.evaluate_training_progress(batch_i, self.mini_epoch_length, outputs,
+                    local_data, batch_i)
+                train_losses, edit_distances = self.evaluate_training_progress(batch_i, outputs,
                                                                                output_lengths, local_targets,
                                                                                local_target_lengths,
                                                                                batch_loss, train_losses,
                                                                                train_edit_distances,
-                                                                               i, n_training_batches, verbose=True)
+                                                                               n_training_batches, verbose=False)
+
                 loss = train_losses[-1]
 
                 # Update LR
                 scheduler.step()
+
                 lr_step = self.optimizer.state_dict()["param_groups"][0]["lr"]
+                print(lr_step)
                 lr_find_lr.append(lr_step)
 
                 # smooth the loss
@@ -255,7 +259,7 @@ class InstructionsProcessor(object):
         '''
         Function called during training that evaluates the current progress of the model and collects data for tracking.
         :param batch_i: Current batch index
-        :param outputs: The output tensor from the previous batch evaluation.
+        :param outputs: The output tensor from the previous batch evaluation. Expects [T x N x C]
         :param output_lengths: The lengths of the sequences.
         :param local_targets: The true labels of the previous batch.
         :param local_target_lengths: The length of the samples in local_targets
@@ -268,7 +272,6 @@ class InstructionsProcessor(object):
         :param n_training_batches: How many batches that is expected to be evaluated in this epoch.
         :return:
         '''
-
         decoded_sequence, _, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
         edit_distance = self.decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
                                                  len(local_target_lengths))
