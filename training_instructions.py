@@ -39,7 +39,7 @@ parser.add_argument('--mini_epoch_validation_partition_size', default=0.1)
 parser.add_argument('--early_stopping_delta', default=0.001)
 parser.add_argument('--validation_patience', default=2)
 
-parser.add_argument('--learning_rate', default=5e-5)  #1e-3 for Fnet1, 1e-4 for Fnet8
+parser.add_argument('--learning_rate', default=1e-4)  #1e-3 for Fnet1, 1e-4 for Fnet8, 5e-5 static for Fnet6
 parser.add_argument('--learning_rate_mode', default='static')  # static or # or decaying
 parser.add_argument('--min_learning_rate_factor', default=6.0)
 parser.add_argument('--learning_rate_step_size', default=0.25)  # Epochs 0.25 for cyclic
@@ -58,7 +58,7 @@ parser.add_argument('--use_delta_features', default=False)  # Use of delta & del
 
 parser.add_argument('--architecture_type', default='CTC')  # CTC or LAS
 parser.add_argument('--label_type', default='letter')  # phoneme or letter
-parser.add_argument('--training_libri_type', default='dev')  # dev, clean or other
+parser.add_argument('--training_libri_type', default='clean')  # dev, clean or other
 
 
 if __name__ == "__main__":
@@ -101,10 +101,10 @@ if __name__ == "__main__":
 
     tensorboard_logger = TensorboardLogger()
 
-    #ids = ["letter_clean_cnn", "phoneme_clean_cnn"]
-    ids = ["phoneme_dev_test"]
-    #label_types = ["letter", "phoneme"]
-    label_types = ["phoneme"]
+    ids = ["letter_clean_rnn", "phoneme_clean_rnn"]
+    #ids = ["phoneme_dev_test"]
+    label_types = ["letter", "phoneme"]
+    #label_types = ["phoneme"]
     for i, id in enumerate(ids):
         args.label_type = label_types[i]
         import_kwargs = {"vocabulary_path": args.vocab_path, "vocabulary_path_is_xml": args.vocab_is_xml,
@@ -252,9 +252,9 @@ if __name__ == "__main__":
         from models.DNet2 import DNet2
         from models.RawNet2 import RawNet2
 
-        model_num = [1]
+        model_num = [8]
 
-        for i_model, model in enumerate([FuncNet1(**model_kwargs)]):
+        for i_model, model in enumerate([FuncNet8(**model_kwargs)]):
 
             model_name = "FuncNet" + str(model_num[i_model])
             visdom_logger_train_ls = VisdomLogger(id + ": " + model_name + " GRU,f=120",
@@ -281,9 +281,9 @@ if __name__ == "__main__":
                                      args.mini_epoch_evaluate_validation,
                                      args.mini_epoch_early_stopping, ordered=False, verbose=False)
 
-            #processor_ls.load_model("./trained_models/checkpoint.pt")
-            #processor_ls.save_model("./trained_models/" + id + "_" + model_name + ".pt")
-            #visdom_logger_train_ls.save_data_to_file("./logger/" + model_name + "_" + id + ".csv")
+            processor_ls.load_model("./trained_models/checkpoint.pt")
+            processor_ls.save_model("./trained_models/" + id + "_" + model_name + ".pt")
+            visdom_logger_train_ls.save_data_to_file("./logger/" + model_name + "_" + id + ".csv")
 
             print("Evaluating on test data for " + model_name + ":")
             processor_ls.load_model("./trained_models/checkpoint.pt")
