@@ -27,6 +27,9 @@ Trained on train-clean-100/360 val on dev-clean.
     F6 f=120, phoneme   0.0990      0.2664      10h 21m      phoneme_clean_cnn_FuncŃet6.pt
     F6 f=120, letters   0.1068      0.2829      10h 50m      letter_clean_cnn_FuncŃet6.pt
     
+    F8 f=120, phoneme   0.0754      0.2403      11h 59m      phoneme_clean_rnn_FuncŃet8.pt
+    F8 f=120, letters   0.0754      0.2424      15h 46m      letter_clean_rnn_FuncŃet8.pt
+    
    Other  
    
     Model + note        LER-clean   LER-other   Time        Saved as:

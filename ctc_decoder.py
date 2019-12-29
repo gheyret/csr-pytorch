@@ -4,6 +4,7 @@ import math
 import collections
 import Levenshtein
 import ctcdecode
+from data.data_importer import get_label2index_dict
 
 def collapse_sequence(input_sequence, blank_code):
     collapsed_sequence = [input_sequence[i] for i in range(len(input_sequence)) if (i==0) or input_sequence[i] != input_sequence[i-1]]
@@ -143,7 +144,7 @@ def beam_ctc_decode(probs, beam_size=5, blank=0):
 
 
 class BeamSearchDecoder(object):
-    def __init__(self, num_classes, beam_width=10, label_list=None):
+    def __init__(self, num_classes, beam_width=10, label_list=None, label_type='letter'):
         self.beam_width = beam_width
 
         # ctcdecode accepts only single char labels, so a dummy list is needed to map to phonemes
@@ -170,6 +171,8 @@ class BeamSearchDecoder(object):
         if label_list is None:
             self.label_list = self.dummy_label_list
         self.decoder = ctcdecode.CTCBeamDecoder(self.label_list, beam_width=self.beam_width, log_probs_input=True)
+        _, self.index2label = get_label2index_dict(label_type=label_type)
+        self.label_type = label_type
 
     def beam_search_batch(self, log_probs, seq_lengths):
         # Expects T x N x C
@@ -177,13 +180,98 @@ class BeamSearchDecoder(object):
         decoded_sequence, scores, timesteps, out_seq_len = self.decoder.decode(log_probs, seq_lengths)
         return decoded_sequence, scores, timesteps, out_seq_len
 
-    def compute_per(self, decoded_sequence, out_seq_len, targets, target_lengths, num_samples=0):
+    def index_to_strings(self, s1):
+        # s1 is a lists containing indexes for each label including space
+        '''
+
+        :param decoded_sequence: Result from beam search decoder. [sample, ???
+        :param out_seq_len:
+        :param targets:
+        :param target_lengths:
+        :return:
+        '''
+        if self.label_type is "phoneme":
+            s2 = '_'.join(str(self.index2label[x]) for x in s1)
+            s2 = s2.replace("_-_", "-")
+            s2 = s2.replace("-", " ")
+            s2 = s2.replace("_", "-")
+        elif self.label_type is "letter":
+            s2 = ''.join(str(self.index2label[x]) for x in s1)
+            s2 = s2.replace("-"," ")
+        return s2
+
+    def index_to_ler(self, s1, s2):
+        # s1 and s2 are lists containing indexes for each label including space
+
+        d1 = [self.dummy_label_dict[x] for x in s1]  # Dummy so that 1 label = 1 token
+        d2 = [self.dummy_label_dict[x] for x in s2]
+        distance = Levenshtein.distance(''.join(d1), ''.join(d2))
+        edit_distance = distance / len(d2)
+        return edit_distance
+
+    def index_to_ler_space(self, s1, s2):
+        # s1 and s2 are lists containing indexes for each label including space
+        # Remove space, (index 1) before computing LER
+        s1 = filter(lambda a: a != 1, s1)
+        s2 = filter(lambda a: a != 1, s2)
+        d1 = [self.dummy_label_dict[x] for x in s1]  # Dummy so that 1 label = 1 token
+        d2 = [self.dummy_label_dict[x] for x in s2]
+        distance = Levenshtein.distance(''.join(d1), ''.join(d2))
+        edit_distance = distance / len(d2)
+        return edit_distance
+
+    def string_to_wer(self, s1, s2):
+        """
+        Computes the Word Error Rate, defined as the edit distance between the
+        two provided sentences after tokenizing to words.
+        Arguments:
+            s1 (string): space-separated sentence
+            s2 (string): space-separated sentence
+        """
+
+        # build mapping of words to integers
+        b = set(s1.split() + s2.split())
+        word2char = dict(zip(b, range(len(b))))
+
+        # map the words to a char array (Levenshtein packages only accepts
+        # strings)
+        w1 = [chr(word2char[w]) for w in s1.split()]
+        w2 = [chr(word2char[w]) for w in s2.split()]
+        edit_distance = Levenshtein.distance(''.join(w1), ''.join(w2))
+        return edit_distance/len(w2)
+
+    def batch_ler(self, decoded_sequence, out_seq_len, targets, target_lengths):
+        wer = []
+        ler = []
+        ler_space = []
+        decoded_strings = []
+        target_strings = []
+        num_samples = len(target_lengths)
+        for i in range(0, num_samples):
+            label_seq = decoded_sequence[i][0][:out_seq_len[i][0]]  # Get the best beam
+
+            decoded_index = [x.item() for x in label_seq]
+            target_index = [x.item() for x in targets[i, :target_lengths[i]]]
+
+            decoded_string = self.index_to_strings(decoded_index)
+            target_string = self.index_to_strings(target_index)
+
+            ler.append(self.index_to_ler(decoded_index, target_index))
+            ler_space.append(self.index_to_ler_space(decoded_index, target_index))
+            wer.append(self.string_to_wer(decoded_string, target_string))
+
+            decoded_strings.append(decoded_string)
+            target_strings.append(target_string)
+
+        return decoded_strings, target_strings, wer, ler, ler_space
+
+    def compute_ler(self, decoded_sequence, out_seq_len, targets, target_lengths, num_samples=0):
         if num_samples > 0:
             total_edit_distance = 0
             for i in range(0, num_samples):
                 #label, score = decode_sample(output_batch, i)
                 label_seq = decoded_sequence[i][0][:out_seq_len[i][0]]  # Get the best beam
-                s1 = [self.dummy_label_dict[x.item()] for x in label_seq]
+                s1 = [self.dummy_label_dict[x.item()] for x in label_seq]  # Dummy so that 1 label = 1 token
                 s2 = [self.dummy_label_dict[x.item()] for x in targets[i, :target_lengths[i]]]
                 distance = Levenshtein.distance(''.join(s1), ''.join(s2))
                 edit_distance = distance / len(s2)
@@ -197,5 +285,6 @@ class BeamSearchDecoder(object):
         decoded_sequence, _, _, out_seq_len = self.beam_search_batch(log_probs, seq_lengths)
         if num_samples is None:
             num_samples = len(target_lengths)
-        avg_edit_distance = self.compute_per(decoded_sequence, out_seq_len, targets, target_lengths, num_samples)
+        avg_edit_distance = self.compute_ler(decoded_sequence, out_seq_len, targets, target_lengths, num_samples)
         return avg_edit_distance
+

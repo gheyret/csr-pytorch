@@ -48,7 +48,7 @@ parser.add_argument('--track_learning_rate', default=True)  # Track or not
 parser.add_argument('--number_of_workers', default=8)
 parser.add_argument('--batch_size', default=16)
 
-parser.add_argument('--rnn_memory_type', default='LSTM')  # GRU or LSTM or RNN
+parser.add_argument('--rnn_memory_type', default='GRU')  # GRU or LSTM or RNN
 parser.add_argument('--rnn_bidirectional', default=True)  # GRU or LSTM bidirectional?
 parser.add_argument('--non_linearity', default='ReLU')  # ReLU or Hardtanh
 
@@ -58,7 +58,7 @@ parser.add_argument('--use_delta_features', default=False)  # Use of delta & del
 
 parser.add_argument('--architecture_type', default='CTC')  # CTC or LAS
 parser.add_argument('--label_type', default='letter')  # phoneme or letter
-parser.add_argument('--training_libri_type', default='clean')  # dev, clean or other
+parser.add_argument('--training_libri_type', default='other')  # dev, clean or other
 
 
 if __name__ == "__main__":
@@ -101,8 +101,8 @@ if __name__ == "__main__":
 
     tensorboard_logger = TensorboardLogger()
 
-    ids = ["letter_clean_rnn", "phoneme_clean_rnn"]
-    #ids = ["phoneme_dev_test"]
+    ids = ["letter_other", "phoneme_other"]
+    #ids = ["phoneme_clean_rnn"]
     label_types = ["letter", "phoneme"]
     #label_types = ["phoneme"]
     for i, id in enumerate(ids):
@@ -128,7 +128,8 @@ if __name__ == "__main__":
                             "early_stopping": early_stopper,
                              "tensorboard_logger": tensorboard_logger,
                              "mini_epoch_length": args.mini_epoch_length,
-                             "track_learning_rate": args.track_learning_rate}
+                             "track_learning_rate": args.track_learning_rate,
+                            "label_type": args.label_type}
 
 
         # DATALOADERS LibriSpeech:
@@ -199,14 +200,18 @@ if __name__ == "__main__":
         validation_dataloader = AudioDataLoader(validation_set, **dataloader_kwargs)
 
         #   Testing:
+
         collection_ls_test_clean, missing_words_ls_test_clean = import_data_libri_speech(dataset_path=libri_speech_test_clean_path, **import_kwargs)
         collection_ls_test_other, missing_words_ls_test_other = import_data_libri_speech(dataset_path=libri_speech_test_other_path, **import_kwargs)
 
+        collection_ls_test_clean = order_data_by_length(collection_ls_test_clean)
+        collection_ls_test_other = order_data_by_length(collection_ls_test_other)
+
         testing_set_ls_clean = Dataset(collection=collection_ls_test_clean, **dataset_kwargs)
-        testing_dataloader_ls_clean = AudioDataLoader(testing_set_ls_clean, **dataloader_kwargs)
+        testing_dataloader_ls_clean = AudioDataLoader(testing_set_ls_clean, **dataloader_kwargs_ordered)
 
         testing_set_ls_other = Dataset(collection=collection_ls_test_other, **dataset_kwargs)
-        testing_dataloader_ls_other = AudioDataLoader(testing_set_ls_other, **dataloader_kwargs)
+        testing_dataloader_ls_other = AudioDataLoader(testing_set_ls_other, **dataloader_kwargs_ordered)
 
 
 
@@ -252,9 +257,9 @@ if __name__ == "__main__":
         from models.DNet2 import DNet2
         from models.RawNet2 import RawNet2
 
-        model_num = [8]
+        model_num = [1]
 
-        for i_model, model in enumerate([FuncNet8(**model_kwargs)]):
+        for i_model, model in enumerate([FuncNet1(**model_kwargs)]):
 
             model_name = "FuncNet" + str(model_num[i_model])
             visdom_logger_train_ls = VisdomLogger(id + ": " + model_name + " GRU,f=120",
@@ -271,33 +276,34 @@ if __name__ == "__main__":
             print("--------Calling train_model()")
 
             # processor_ls.load_model("./trained_models/LS_ConvNet" + str(model_num[i_model]) + ".pt")
-            # processor_ls.load_model("./trained_models/" + id + "_" + model_name + ".pt")
+            processor_ls.load_model("./trained_models/" + id + "_" + model_name + ".pt")
             # processor_ls.load_model("./trained_models/checkpoint.pt")
 
-            processor_ls.train_model(args.mini_epoch_validation_partition_size,
-                                     args.mini_epoch_evaluate_validation,
-                                     args.mini_epoch_early_stopping, ordered=True, verbose=False)
-            processor_ls.train_model(args.mini_epoch_validation_partition_size,
-                                     args.mini_epoch_evaluate_validation,
-                                     args.mini_epoch_early_stopping, ordered=False, verbose=False)
+            #processor_ls.train_model(args.mini_epoch_validation_partition_size,
+            #                         args.mini_epoch_evaluate_validation,
+            #                         args.mini_epoch_early_stopping, ordered=True, verbose=False)
+            #processor_ls.train_model(args.mini_epoch_validation_partition_size,
+            #                         args.mini_epoch_evaluate_validation,
+            #                         args.mini_epoch_early_stopping, ordered=False, verbose=False)
 
-            processor_ls.load_model("./trained_models/checkpoint.pt")
-            processor_ls.save_model("./trained_models/" + id + "_" + model_name + ".pt")
-            visdom_logger_train_ls.save_data_to_file("./logger/" + model_name + "_" + id + ".csv")
+            #processor_ls.load_model("./trained_models/checkpoint.pt")
+            #processor_ls.save_model("./trained_models/" + id + "_" + model_name + ".pt")
+            #visdom_logger_train_ls.save_data_to_file("./logger/" + model_name + "_" + id + ".csv")
 
             print("Evaluating on test data for " + model_name + ":")
-            processor_ls.load_model("./trained_models/checkpoint.pt")
-            processor_ls.evaluate_model(testing_dataloader_ls_clean, use_early_stopping=False, verbose=True)
-            processor_ls.evaluate_model(testing_dataloader_ls_other, use_early_stopping=False, verbose=True)
+            #processor_ls.load_model("./trained_models/checkpoint.pt")
+            eval_clean = processor_ls.evaluate_model(testing_dataloader_ls_clean, use_early_stopping=False, verbose=True)
+            eval_other = processor_ls.evaluate_model(testing_dataloader_ls_other, use_early_stopping=False, verbose=True)
             #processor_ls.evaluate_model(testing_dataloader_cv, use_early_stopping=False, verbose=True)
-            early_stopper.reset()
 
+            processor_ls.write_dict_to_file("./logger/eval/" + id + "_" + model_name + "_clean.csv", eval_clean)
+            processor_ls.write_dict_to_file("./logger/eval/" + id + "_" + model_name + "_other.csv", eval_other)
+
+            early_stopper.reset()
         if use_cuda:
             print('Maximum GPU memory occupied by tensors:', torch.cuda.max_memory_allocated(device=None) / 1e9, 'GB')
             print('Maximum GPU memory managed by the caching allocator: ',
                   torch.cuda.max_memory_cached(device=None) / 1e9, 'GB')
-
-    # Todo: Attempt learning completely without CNN, take spec as input to rnn where input_size = num_features.
 
     # Todo: Move back to tensorboard
 

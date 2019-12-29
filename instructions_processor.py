@@ -48,13 +48,14 @@ class InstructionsProcessor(object):
                  learning_rate_step_size=5,
                  num_classes=None,
                  using_cuda=False, early_stopping=None,
-                 tensorboard_logger=None, mini_epoch_length=20, visdom_logger_train=None, track_learning_rate=False):
+                 tensorboard_logger=None, mini_epoch_length=20, visdom_logger_train=None, track_learning_rate=False,
+                 label_type='letter'):
         self.model = model_input
         self.batch_size = batch_size
         self.use_cuda = using_cuda
         self.early_stopping = early_stopping
         self.tensorboard_logger = tensorboard_logger
-        self.decoder = BeamSearchDecoder(num_classes)
+        self.decoder = BeamSearchDecoder(num_classes, label_type=label_type)
         self.mini_epoch_length = mini_epoch_length
         self.max_epochs_training = max_epochs_training
         self.training_dataloader = training_dataloader
@@ -215,10 +216,17 @@ class InstructionsProcessor(object):
         losses.append(loss.item())
 
         decoded_sequence, scores, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
-        edit_distance = self.decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
+        edit_distance = self.decoder.compute_ler(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
                                                  len(local_target_lengths))
-
-        edit_distances.append(edit_distance)
+        decoded_strings, target_strings, wer, ler, ler_space = self.decoder.batch_ler(decoded_sequence, out_seq_len, local_targets, local_target_lengths)
+        edit_distances["decoded_strings"].append(decoded_strings)
+        edit_distances["target_strings"].append(target_strings)
+        edit_distances["wer"].append(wer)
+        edit_distances["ler"].append(ler)
+        edit_distances["ler_space"].append(ler_space)
+        edit_distances["edit_distance"].append(edit_distance)
+        #print(edit_distances)
+        # edit_distances.append(edit_distance)
         return losses, edit_distances
 
     def process_batch_training(self, local_data, batch_i):
@@ -273,7 +281,7 @@ class InstructionsProcessor(object):
         :return:
         '''
         decoded_sequence, _, _, out_seq_len = self.decoder.beam_search_batch(outputs, output_lengths)
-        edit_distance = self.decoder.compute_per(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
+        edit_distance = self.decoder.compute_ler(decoded_sequence, out_seq_len, local_targets, local_target_lengths,
                                                  len(local_target_lengths))
         evaluated_label = decoded_sequence[0][0][0:out_seq_len[0][0]]
         true_label = local_targets[0, :local_target_lengths[0]]
@@ -355,7 +363,7 @@ class InstructionsProcessor(object):
                                                                                          n_training_batches, verbose,
                                                                                          visdom_logger_train=visdom_logger_train_evaluate)
                     if mini_epoch_evaluate_validation:
-                        self.evaluate_model(self.validation_dataloader, use_early_stopping=mini_epoch_early_stopping,
+                        _ = self.evaluate_model(self.validation_dataloader, use_early_stopping=mini_epoch_early_stopping,
                                             visdom_logger=self.visdom_logger_train, verbose=verbose,
                                             part=mini_epoch_validation_partition_size)
                         if self.track_learning_rate:
@@ -376,7 +384,7 @@ class InstructionsProcessor(object):
                 break
 
             # Validation
-            self.evaluate_model(self.validation_dataloader, use_early_stopping=True,
+            _ = self.evaluate_model(self.validation_dataloader, use_early_stopping=True,
                                 visdom_logger=visdom_logger_val_evaluate, verbose=verbose)
             if (not mini_epoch_evaluate_validation) & self.track_learning_rate:
                 for g in self.optimizer.param_groups:
@@ -402,7 +410,12 @@ class InstructionsProcessor(object):
             self.model.eval()
             self.batch_time = time.time()
             eval_losses = []
-            eval_edit_distances = []
+            eval_edit_distances = {"decoded_strings": [],
+                                   "target_strings": [],
+                                   "wer": [],
+                                   "ler": [],
+                                   "ler_space": [],
+                                   "edit_distance": []}
             num_batches = len(data_dataloader)
             for batch_i, (local_data) in enumerate(data_dataloader):
                 eval_losses, eval_edit_distances = self.process_batch_evaluation(local_data, eval_losses,
@@ -411,7 +424,7 @@ class InstructionsProcessor(object):
                     break
             self.model.train()
             eval_loss = numpy.average(eval_losses)
-            eval_edit_distance = numpy.average(eval_edit_distances)
+            eval_edit_distance = numpy.average(eval_edit_distances["edit_distance"])
             if visdom_logger is not None:
                 visdom_logger.add_value(["loss_val", "PER_val"], [eval_loss, eval_edit_distance])
                 visdom_logger.update()
@@ -426,6 +439,8 @@ class InstructionsProcessor(object):
                                    max_epochs=self.max_epochs_training,
                                    batch_size=self.batch_size, print_frequency=n_dataloader_batches)
                 print('#############################################################################################')
+
+            return eval_edit_distances
 
     def print_cuda_information(self, use_cuda, device):
         print("############ CUDA Information #############")
@@ -465,3 +480,27 @@ class InstructionsProcessor(object):
     def load_model(self, model_load_path):
         self.model.load_state_dict(torch.load(model_load_path))
         print("Loaded model at path: ", model_load_path)
+
+    def write_dict_to_file(self, file_path, data):
+        '''
+
+        :param file_path:
+        :param data:  Many keys. List of lists.
+        :return:
+        '''
+        import csv
+        with open(file_path, 'w') as f:  # Just use 'w' mode in 3.x
+            data_keys = list(data.keys())
+            num_batches = len(data[data_keys[0]])
+            batch_size = len(data[data_keys[0]][0])
+            w = csv.writer(f, delimiter=',')
+            w.writerow(data_keys)
+            for batch in range(num_batches):
+                for value in range(len(data[data_keys[0]][batch])):
+                    iterable = []
+                    for key in data_keys:
+                        if isinstance(data[key][batch], list):
+                            iterable.append(data[key][batch][value])
+                        elif value == 0:
+                            iterable.append(data[key][batch])
+                    w.writerow(iterable)
